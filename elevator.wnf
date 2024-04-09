@@ -1,0 +1,764 @@
+include elv:elevator
+
+// horizontal elevator
+// we use 4 bytes as block
+// 86 87 88 89
+
+// within this 4 Characters we move the elevator left/right
+
+byte array elevator_horizontal[128] = [
+// item: 86
+#....,
+#333.,
+#3.3.,
+#3333,
+#333.,
+#333.,
+#3.3.,
+#333.,
+
+// item: 87
+#....,
+#3333,
+#3333,
+#3333,
+#3333,
+#3333,
+#.3.3,
+#3.3.,
+
+// item: 88
+#....,
+#3.33,
+#3.3.,
+#3333,
+#3.33,
+#3.33,
+#..3.,
+#3.33,
+
+// item: 89
+#....,
+#3.1.,
+#3...,
+#3...,
+#3...,
+#3...,
+#3...,
+#3...,
+
+// ]
+//
+// byte array elevator1[1] = [
+// item: 86
+
+#....,
+#1333,
+#.3.3,
+#.333,
+#.333,
+#.333,
+#.3.3,
+#.333,
+
+// item: 87
+#....,
+#.333,
+#.333,
+#3333,
+#.333,
+#.333,
+#..3.,
+#.3.3,
+
+// item: 88
+#....,
+#33.3,
+#33.3,
+#3333,
+#33.3,
+#33.3,
+#3..3,
+#.3.3,
+
+// item: 89
+#....,
+#331.,
+#.3..,
+#33..,
+#33..,
+#33..,
+#.3..,
+#33..,
+
+// ]
+//
+// byte array elevator2[1] = [
+// item: 86
+#....,
+#1.33,
+#..3.,
+#..33,
+#..33,
+#..33,
+#..3.,
+#..33,
+
+// item: 87
+#....,
+#3.33,
+#3.33,
+#3333,
+#3.33,
+#3.33,
+#3..3,
+#3.3.,
+
+// item: 88
+#....,
+#333.,
+#333.,
+#3333,
+#333.,
+#333.,
+#.3..,
+#3.3.,
+
+// item: 89
+#....,
+#333.,
+#3.3.,
+#333.,
+#333.,
+#333.,
+#3.3.,
+#333.,
+
+// ]
+//
+// byte array elevator3[1] = [
+// item: 86
+#....,
+#1.13,
+#...3,
+#...3,
+#...3,
+#...3,
+#...3,
+#...3,
+
+// item: 87
+#....,
+#33.3,
+#.3.3,
+#3333,
+#33.3,
+#33.3,
+#.3..,
+#33.3,
+
+// item: 88
+#....,
+#3333,
+#3333,
+#3333,
+#3333,
+#3333,
+#3.3.,
+#.3.3,
+
+// item: 89
+#....,
+#.333,
+#.3.3,
+#3333,
+#.333,
+#.333,
+#.3.3,
+#.333,
+
+]
+
+byte currentElevator
+byte slowness
+
+byte elevatorMode          // 1 == horizontal 2 == vertical
+
+byte elevatorWaitFor
+
+byte xpos, ypos
+byte direction
+word screen_line
+word xadd_second
+
+byte xmin, xmax
+byte ymin, ymax
+
+word array mul40[@split] = @mul40
+
+word screen
+
+// ist in assembler neu implementiert, fuer max Speed
+//procedure @store_lr()
+//begin
+//  screen := screen_line + xpos
+//  @move(screen, adr:background1, 4)
+//
+//  screen := screen + xadd_second
+//  @move(screen, adr:background2, 4)
+//
+//end
+
+procedure paintHorizontalElevator()
+begin
+  @mem[screen] := [86, 87, 88, 89]
+end
+
+procedure paintElevator_lr()
+begin
+  screen := screen_line + xpos
+  paintHorizontalElevator()
+
+  if xadd_second > 4 then
+  begin
+    screen := screen + xadd_second
+    paintHorizontalElevator()
+  end
+end
+
+// Initialisiert immer 2 Elevator
+// Anzugeben sind x,y vom ersten
+// Dann wie viele Bytes der 2. vom ersten entfernt ist
+// dann xmin und xmax
+procedure init_elevator_left_right()
+begin
+  currentElevator := xpos * 4
+  slowness := 1
+  direction := 1
+
+  screen_line := mul40[ypos] + game_screen
+  @store_lr()
+  paintElevator_lr()
+end
+
+byte levelHasElevator
+byte level_
+
+function @hasLevelElevator(level_)
+begin
+  if levelHasElevator == level_ then return 1
+  return 0
+end
+
+function @getCurrentElevator()
+begin
+  return currentElevator
+end
+
+// ist in assembler neu implementiert, fuer max Speed
+//procedure @restore_lr()
+//begin
+//  screen := screen_line + xpos
+//  @move(adr:background1, screen, 4)
+//
+//  screen := screen + xadd_second
+//  @move(adr:background2, screen, 4)
+//
+//end
+
+const InFontPosition = 688 // 86*8
+
+byte x,y
+byte currentElevatorAnd3
+
+byte direction_tick
+
+procedure move_elevator_left_right()
+begin
+  currentElevator := currentElevator + direction
+  currentElevatorAnd3 := currentElevator & 3
+  direction_tick := direction
+
+  if direction == 1 then
+  begin
+    if currentElevatorAnd3 == 0 then
+    begin
+      @restore_lr()
+      xpos := currentElevator / 4
+      @store_lr()
+      paintElevator_lr()
+    end
+  end
+  else
+  begin
+    if currentElevatorAnd3 == 3 then
+    begin
+      @restore_lr()
+      xpos := currentElevator / 4
+      @store_lr()
+      paintElevator_lr()
+    end
+  end
+
+  // TODO: nochmal auslagern in extra Assembler Funktion fuer max speed?
+  @move(currentElevatorAnd3 * 32 + adr:elevator_horizontal, $cc00 + InFontPosition, 32)
+
+  if currentElevator == xmax then
+  begin
+    direction := 255
+  end
+  if currentElevator == xmin then
+  begin
+    direction := 1
+  end
+
+end
+
+function @getElevatorMode()
+begin
+  return elevatorMode
+end
+
+function @getElevatorDirection()
+begin
+  return direction
+end
+
+function @getElevatorDirectionTicks()
+begin
+  return direction_tick
+end
+
+// vertical Elevator
+//
+// we use 6 bytes as block
+// 86 87 88
+// 89 90 91
+
+// within this 6 Characters we move the elevator up/down
+
+byte array elevator_vertical[128] = [
+// item: 86
+#....,
+#333.,
+#3.3.,
+#3333,
+#333.,
+#333.,
+#3.3.,
+#333.,
+
+// item: 87
+#....,
+#3333,
+#3333,
+#3333,
+#3333,
+#3333,
+#.3.3,
+#3.3.,
+
+// item: 88
+#....,
+#.333,
+#.3.3,
+#3333,
+#.333,
+#.333,
+#.3.3,
+#.333,
+
+// item: 89
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+
+// item: 90
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+
+// item: 91
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+
+// -----------------------------------
+
+// item: 86
+#....,
+#....,
+#....,
+#333.,
+#3.3.,
+#3333,
+#333.,
+#333.,
+
+// item: 87
+#....,
+#....,
+#....,
+#3333,
+#3333,
+#3333,
+#3333,
+#3333,
+
+// item: 88
+#....,
+#....,
+#....,
+#.333,
+#.3.3,
+#3333,
+#.333,
+#.333,
+
+// item: 89
+#3.3.,
+#333.,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+
+// item: 90
+#.3.3,
+#3.3.,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+
+// item: 91
+#.3.3,
+#.333,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+
+// -----------------------------------
+
+// item: 86
+#....,
+#....,
+#....,
+#....,
+#....,
+#333.,
+#3.3.,
+#3333,
+
+// item: 87
+#....,
+#....,
+#....,
+#....,
+#....,
+#3333,
+#3333,
+#3333,
+
+// item: 88
+#....,
+#....,
+#....,
+#....,
+#....,
+#.333,
+#.3.3,
+#3333,
+
+// item: 89
+#333.,
+#333.,
+#3.3.,
+#333.,
+#....,
+#....,
+#....,
+#....,
+
+// item: 90
+#3333,
+#3333,
+#.3.3,
+#3.3.,
+#....,
+#....,
+#....,
+#....,
+
+// item: 91
+#.333,
+#1333,
+#.3.3,
+#.333,
+#....,
+#....,
+#....,
+#....,
+
+// -----------------------------------
+// item: 86
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#333.,
+
+// item: 87
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#3333,
+
+// item: 88
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#....,
+#.333,
+
+// item: 89
+#3.3.,
+#3333,
+#333.,
+#333.,
+#3.3.,
+#333.,
+#....,
+#....,
+
+// item: 90
+#3333,
+#3333,
+#3333,
+#3333,
+#.3.3,
+#3.3.,
+#....,
+#....,
+
+// item: 91
+#.3.3,
+#3333,
+#.333,
+#.333,
+#.3.3,
+#.333,
+#....,
+#....,
+
+]
+
+procedure paintVerticalElevator()
+begin
+  @mem[screen] := [86, 87, 88]
+  @mem[screen+40] := [89, 90, 91]
+end
+
+procedure paintElevator_ud()
+begin
+  screen := screen_line + xpos
+  paintVerticalElevator()
+
+  screen := screen + xadd_second
+  paintVerticalElevator()
+end
+
+procedure init_elevator_up_down()
+begin
+  currentElevator := ypos * 8
+  slowness := 1
+  direction := 2
+
+  screen_line := mul40[ypos] + game_screen
+  @store_ud()
+  paintElevator_ud()
+end
+
+procedure move_elevator_up_down()
+begin
+  currentElevator := currentElevator + direction
+  currentElevatorAnd3 := currentElevator & 7
+  direction_tick := direction
+
+  if direction == 2 then
+  begin
+    if currentElevatorAnd3 == 0 then
+    begin
+      @restore_ud()
+      ypos := currentElevator / 8
+      screen_line := mul40[ypos] + game_screen
+
+      @store_ud()
+      paintElevator_ud()
+    end
+  end
+  else
+  begin
+    if currentElevatorAnd3 == 6 then
+    begin
+      @restore_ud()
+      ypos := currentElevator / 8
+      screen_line := mul40[ypos] + game_screen
+
+      @store_ud()
+      paintElevator_ud()
+    end
+  end
+
+// for debug
+//    @fast_gotoxy(24,0)
+//    @printff("%d %d ", ypos, currentElevator)
+
+  // TODO: nochmal auslagern in extra Assembler Funktion fuer max speed?
+  @move((currentElevatorAnd3/2) * 48 + adr:elevator_vertical, $cc00 + InFontPosition, 48)
+
+  if currentElevator == ymax then
+  begin
+    direction := 254
+  end
+  if currentElevator == ymin then
+  begin
+    direction := 2
+  end
+end
+
+procedure @move_elevator()
+begin
+  direction_tick := 0
+  slowness := slowness - 1
+  if slowness == 0 then
+  begin
+    slowness := elevatorWaitFor
+
+    if elevatorMode == 1 then
+    begin
+      move_elevator_left_right()
+    end
+    else if elevatorMode == 2 then
+    begin
+      move_elevator_up_down()
+    end
+  end
+end
+
+const EL_HORI=1
+const EL_VERT=2
+
+byte array isElevatorInLevel[1] = [
+// xpos/ypos and xadd are given in byte pos
+// xymin/xymax are given in pixel position
+
+// level, mode, waitfor(speed), xpos,ypos, xadd, xymin,xymax
+    8,   EL_HORI, 3,              4,   14,   22,   16,   43,
+    9,   EL_VERT, 4,              6,   8,    25,   40,   72,
+    17,  EL_HORI, 3,              14,  5,    0 ,   56,   91,
+    22,  EL_HORI, 3,              10,  20,   0 ,   40,   107,
+    26,  EL_HORI, 3,              16,  5,    0 ,   64,   83,
+    30,  EL_HORI, 3,              12,  20,   0 ,   48,   99,
+    31,  EL_VERT, 4,              15,  8,    7 ,   40,   76,
+    37,  EL_VERT, 4,              17,  8,    3 ,   56,   104,
+    40,  EL_VERT, 4,              11,  8,    15,   40,   80,
+    46,  EL_VERT, 4,              31,  5,    0,    40,   136,
+    49,  EL_HORI, 3,              12,  5,    0,    48,   99,
+    64,  EL_HORI, 3,              12,  5,    0,    48,   99,
+    67,  EL_VERT, 4,              22,  11,   0,    88,   136,
+    70,  EL_HORI, 3,              12,  5,    0,    48,   99,
+    73,  EL_VERT, 4,              19,  9,    0,    72,   136,
+    74,  EL_HORI, 3,              12,  8,    0,    48,   103,
+    75,  EL_HORI, 3,              10,  5,    0,    40,   107,
+    76,  EL_HORI, 3,              12,  17,   0,    48,   103,
+    79,  EL_HORI, 3,              12,  5,    0,    48,   99,
+  255
+]
+
+byte i
+
+procedure @init_elevator(level_)
+begin
+  levelHasElevator := 0
+  elevatorMode := 0
+
+  for i:=0 to isElevatorInLevel_elements step 8 do
+  begin
+    if level_ == isElevatorInLevel[i] then
+    begin
+      elevatorMode := isElevatorInLevel[i+1]   // 1 or 2
+
+      elevatorWaitFor := isElevatorInLevel[i+2]  // how many frames we should wait, until next elevator move
+
+      xpos := isElevatorInLevel[i+3]
+      ypos := isElevatorInLevel[i+4]
+
+      xadd_second := isElevatorInLevel[i+5]
+
+      levelHasElevator := level_
+
+      if elevatorMode == 1 then
+      begin
+        xmin := isElevatorInLevel[i+6]
+        xmax := isElevatorInLevel[i+7]
+        init_elevator_left_right()
+      end
+      if elevatorMode == 2 then
+      begin
+        ymin := isElevatorInLevel[i+6]
+        ymax := isElevatorInLevel[i+7]
+        init_elevator_up_down()
+      end
+    end
+  end
+end
+
+//// NICE Feature, get from the current level the next level with an elevator
+//
+//byte elevatorLevel
+//byte level
+//
+//function @getNextLevelWithElevator(level_)
+//begin
+//  elevatorLevel := 0
+//  level := 0
+//  while level <= level_ do
+//  begin
+//    level := isElevatorInLevel[elevatorLevel]
+//    elevatorLevel := elevatorLevel + 8
+//  end
+//  return level
+//end
