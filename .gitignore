@@ -1,0 +1,14 @@
+.idea
+compiler/bin
+
+*.INC.inc
+*.lst
+NIGHT-TEST.XEX
+NIGHT-KNIGHT-DEMO.XEX
+PLAYSX.DAT
+PLAYSY.DAT
+PLAYSZ.DAT
+night-knight-demo.atr
+music/new-video-demo*.mkv
+music/New-Demo-Night-Knight*.mp4
+music/video-demo/
