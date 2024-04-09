@@ -1,0 +1,947 @@
+program night
+
+LOMEM=$2000,runad // DOS 2.5 Low Memory is set to $1c6c
+
+// --- GTIA ---
+byte array HPOSP[4]=@
+
+byte array HPOSM[4]=@
+
+byte array SIZEP[4]=@ // 53256
+
+byte PAL=@ // 1=PAL, $E=NTSC
+
+byte array COLPM[4]=@ // 53266
+byte array COLPF[4]=@ // 53270
+byte COLBK=@ // 53274
+
+byte GRACTL=@ // 53277 // 2:Player an 1: Missiles an
+
+byte HITCLR=@ // 53278 // loeschen der Kollisionsregister
+
+// --- POKEY ---
+
+byte RANDOM=@ // 53770 // $d20a
+
+// --- ANTIC ---
+
+byte DMACTL=@ // 54272
+byte SDMCTL=@ // 559 // Schatten von 54272 DMACTL
+
+byte CHACTL=@ // 54273
+byte CHACT=@
+
+word DLIST=@ // 54274
+
+byte PMBASE=@ // 54279 // 2kb Grenze ($800)
+
+byte CHBASE=@ // 54281
+byte CHBAS=@ // Schatten von 54281 (Zeichensatz) 1k Grenze ($400)
+
+byte WSYNC=@ // wert hineinschreiben haelt die CPU an
+
+byte VCOUNT=@ // vertikale Bildschirmzeile / 2 bei PAL 0-155
+
+byte GPRIOR=@
+
+byte CONSOL=@
+
+// fuer saubere Key Steuerung
+byte srtimr=@
+byte KRPDEL = @
+byte keyrep = @
+
+byte noclik=@
+
+byte ch=@
+
+// Hier muessen die Laufrichtungen von IDX_* eingetragen werden
+// In enemy-data.INC gibt es die entsprechenden Funktionen zum Auslesen
+// @getEnemyToRight(type, animation_number)
+// type ist IDX_* Wert
+word array @enemy_to_right[1] = [
+  0,
+  @skeleton_to_right,    // IDX_SKELETON
+  @archer_to_right,      // IDX_ARCHER
+  @dark_knight_to_right, // IDX_DARK_KNIGHT
+  @ghost_to_right,       // IDX_GHOST
+  @dracu_to_right,       // IDX_VAMPIRE
+  @wizard_to_right,      // IDX_WIZARD
+  @werwolf_to_right,     // IDX_WERWOLF
+  @cat_to_right,         // IDX_CAT
+  0,                     // IDX_ARROW,
+  @bat_fly               // IDX_BAT
+]
+
+word array @enemy_to_left[1] = [
+  0,
+  @skeleton_to_left,     // IDX_SKELETON
+  @archer_to_left,       // IDX_ARCHER
+  @dark_knight_to_left,  // IDX_DARK_KNIGHT
+  @ghost_to_left,        // IDX_GHOST
+  @dracu_to_left,        // IDX_VAMPIRE
+  @wizard_to_left,       // IDX_WIZARD
+  @werwolf_to_left,      // IDX_WERWOLF
+  @cat_to_left,          // IDX_CAT
+  0,                     // IDX_ARROW,
+  @bat_fly               // IDX_BAT
+]
+
+byte countOfEnterableFloors = @countOfEnterableFloors
+byte countOfEnteredFloor = @countOfEnteredFloor
+
+byte hw_Frequence
+byte seconds = @seconds
+byte lives = @lives
+byte live_update = @live_update // if 1, update live view
+byte level = @level
+byte startlevel = @startlevel
+byte level_played
+
+byte timercountdown
+byte player4_flash = @player4_flash
+byte player_mode = @player_mode
+
+byte array bcd_highscore[4] = @bcd_highscore
+
+byte music_loudness = @music_loudness
+byte intro_loudness = @intro_loudness
+byte sfx_loudness = @sfx_loudness
+
+byte ntsc_color_add = @ntsc_color_add
+
+procedure @init_program()
+begin
+  // Juan J. Martinez has set the start high score to $00010000
+  bcd_highscore[0] := $01
+  bcd_highscore[1] := $00
+  bcd_highscore[2] := $01
+  bcd_highscore[3] := $00
+
+  player_mode := 0
+
+  ntsc_color_add := 0
+  if pal != 1 then
+  begin
+    ntsc_color_add := $10
+  end
+end
+
+procedure @init_game()
+begin
+  @clearbyte(score_text,160)
+
+  @init_fastscreen(score_text)
+  @INIT_SET_BYTES_PER_LINE(40)
+
+  if player_mode == 1 then
+  begin
+    lives := 99
+  end
+  else if player_mode == 2 or player_mode == 3 then
+  begin
+    lives := 9
+  end
+  else
+  begin
+    lives := 3
+  end
+
+  live_update := 0
+  level_played := 0
+
+// setzen des Startlevel
+  level := startlevel  // IDEA: @randomMod(80) + 1
+
+//  level := @getNextLevelWithElevator(level) Test elevators, ok!
+
+  if hw_Frequence == 50 then
+    timercountdown := 50
+  else
+    timercountdown := 60
+
+  @init_score_and_new_live(NEW_LIVE_AT_SCORE)
+end
+
+
+procedure @fade_in()
+begin
+  SDMCTL := $3E // 559
+  GPRIOR := 17  // 623
+end
+
+procedure @fade_out()
+begin
+//  @waitline(120)
+  SDMCTL := $00 // 559
+end
+
+procedure @seconds_red_background()
+begin
+  @orbyte(%00110000, pm_base_addr + $0325, 7) // $b700 + 37
+end
+
+procedure @seconds_white_background()
+begin
+  @andbyte(%00001111, pm_base_addr + $0325, 7) // Wir filtern einfach das rot wieder weg
+end
+
+procedure @heart_white()
+begin
+  @andbyte(%11110000, pm_base_addr + $0325, 7) // Wir filtern einfach das rot raus
+end
+
+byte i
+byte timer = @timer
+
+byte dude_start_xpos = @dude_start_xpos
+byte dude_start_ypos = @dude_start_ypos
+
+// byte array ypf_to_enemy_ypos[1] = @ypf_to_enemy_ypos
+
+byte nextFreeSprite
+
+//byte xpos, ypos
+//procedure showValues()
+//begin
+//  @fast_gotox(5)
+//  @printff("XPOS:%d YPOS:%d YQ:%d  ",xpos,ypos,ypos/4)
+//end
+//
+//procedure test_game_loop()
+//begin
+//  while @strig(0) == 0 do
+//  begin
+//  end
+//
+//  xpos := dude_start_xpos
+//  ypos := dude_start_ypos
+//
+//  ypos := ypf_to_enemy_ypos[7]
+//
+//  @start_displaylist_interrupts()
+//  @fade_in()
+//
+//  @init_Dude()       // x,y position of dude comes over global variable
+//
+//  @setDeadEnemy()
+//
+////  @init_skeletons()
+////  @init_archers()
+//
+////  ready()
+//  timer := 0
+//
+//
+//  while @strig(0) == 1 do
+//  begin
+//    @waitline(4)
+//    @testDude(xpos, ypos)
+//    if @stickup(0) == 1 then
+//    begin
+//      ypos := ypos - 4
+//      while @stickup(0) == 1 do begin end
+//      showValues()
+//    end
+//    if @stickDown(0) == 1 then
+//    begin
+//      ypos := ypos + 4
+//      while @stickDown(0) == 1 do begin end
+//      showValues()
+//    end
+//
+//    if @stickLeft(0) == 1 then
+//    begin
+//      xpos := xpos - 2
+//      // while @stickLeft(0) == 1 do begin end
+//      showValues()
+//    end
+//
+//    if @stickRight(0) == 1 then
+//    begin
+//      xpos := xpos + 2
+//      // while @stickRight(0) == 1 do begin end
+//      showValues()
+//    end
+//
+//    @sleep(1)
+//  end
+//
+//end
+
+word hashResultAddr
+byte keycode = @keycode
+byte key_value = @key_value
+
+procedure @wait_no_key_pressed()
+begin
+  if keycode != $ff then
+  begin
+    @waitFrames(8)       // entprellen
+    while ch != $ff do
+    begin
+      @waitFrames(2)
+      ch:=$ff
+    end
+  end
+end
+
+procedure @wait_music_done()
+begin
+  // wait as long as music plays
+  while @music_count_shapes_play() != 0 do
+  begin
+    @waitFrames(2)
+  end
+end
+
+procedure fast_gotoxy_17_0()
+begin
+  @fast_gotoxy(17,0)
+end
+
+procedure show_Password()
+begin
+  @music_stop_timer()
+
+  fast_gotoxy_17_0()
+  @printff("PAUSE ")
+
+  hashResultAddr := @generate_Password(level)
+
+  @showText("PASSWORD:       ")
+
+  @fast_gotoxy(21,2)
+  @printPassword(hashResultAddr)
+
+  @wait_no_key_pressed()
+  @wait_music_done()
+  key_value := 0
+
+  while 1 == 1 do
+  begin
+    if @strig(0) == 0 then break
+
+    @checkkey()
+    if key_value == key_space then break
+    @waitFrames(9)
+  end
+  @wait_no_key_pressed()
+
+  key_value := 0
+
+  fast_gotoxy_17_0()
+  @printff("      ")
+  @fast_gotoxy_clear()
+  show_screen := PLAYFIELD_SCREEN
+  @music_start_timer()
+end
+
+byte array sprite_x[MAX_SPRITES] = @sprite_x
+byte array sprite_y[MAX_SPRITES] = @sprite_y
+byte array sprite_shape[MAX_SPRITES] = @sprite_shape
+byte array sprite_color[MAX_SPRITES] = @sprite_color
+
+byte array block_color[32] = @block_c4
+
+byte array gem_occured[1] = @gem_occured
+byte array gem_occur_in_second[4] = @gem_occur_in_second
+byte array gem_remove_in_second[1] = @gem_remove_in_second
+byte array gem_color[1] = @gem_color
+byte array gem_xpos[1] = @gem_xpos
+byte array gem_ypos[1] = @gem_ypos
+byte array gem_removed[1] = @gem_removed
+
+byte gem_current
+byte gem_to_remove
+byte gem
+byte gem_blow_index
+byte shape
+byte array blow[1] = @blow
+
+byte dead_countdown = @dead_countdown
+
+//byte lastColor
+//byte array block_c4[32] = @block_c4
+//byte prell
+//
+//procedure handleColor()
+//begin
+//  if prell != 0 then
+//  begin
+//    prell := prell - 1
+//  end
+//  else
+//  begin
+//    if key_value == 45 then
+//    begin
+//      for i:=0 to 31 do
+//      begin
+//        if block_c4[i] == lastColor then
+//        begin
+//          block_c4[i] := block_c4[i] + 16
+//        end
+//      end
+//      lastColor := lastColor + 16
+//      prell := 20
+//    end
+//    if key_value == 43 then
+//    begin
+//      for i:=0 to 31 do
+//      begin
+//        if block_c4[i] == lastColor then
+//        begin
+//          block_c4[i] := block_c4[i] - 16
+//        end
+//      end
+//      lastColor := lastColor - 16
+//      prell := 20
+//    end
+//    @fast_gotoxy(25,0)
+//    @printff("$%x  ", lastColor)
+//  end
+//end
+
+procedure handle_gems()
+begin
+  // GEM Handling
+  // Ein GEM erscheint nur für 10s
+  // Es sollten niemals 2 GEMs in der selben Sekunde erscheinen, das stellen wir wo anders sicher
+  // Das macht es für die Eingangsanimation einfacher.
+
+  gem := @check_if_gem_occur_in_second(seconds)
+
+  if gem != 255 then
+  begin
+    gem_occured[gem] := 1
+    gem_blow_index := 0
+    gem_remove_in_second[gem] := seconds - 10
+    gem_current := gem
+    @audio_play_gem_occur()
+  end
+
+  gem_to_remove := @check_if_gem_remove_in_second(seconds)
+  if gem_to_remove != 255 then
+  begin
+    @remove_gem(gem_to_remove)
+    gem_removed[gem_to_remove] := 1
+    gem_blow_index := 11
+    gem_current := gem_to_remove
+    @audio_play_gem_remove()
+  end
+end
+
+byte array waitforani[MAX_ENEMIES] = @enemy_waitforani
+byte flicker_enemies = @flicker_enemies
+
+// Handle seconds will be called every second in game loop
+// to update the count in the middle of the status line
+procedure handle_seconds()
+begin
+  seconds := seconds - 1
+
+  // for debug
+  // @fast_gotox(17)
+  // @printff("%d %d ", countOfEnterableFloors, countOfEnteredFloor)
+
+  @fast_gotox(x_pos_score)
+  @printSmallDecimalWith0(seconds)
+
+  if seconds < 10 then
+  begin
+    player4_flash := 6 // we have 6 different colors to flash
+    @seconds_red_background()
+    @audio_play_second_tic()
+  end
+  if seconds == 0 then
+  begin
+    @dude_died()
+
+    // wir zeigen schon out of time dann muss nicht noch der Tote Dude gezeigt werden
+    dead_countdown := 3
+    @move_Dude()
+
+    if lives > 0 then
+    begin
+      @stage_out_of_time()
+
+      show_screen := PLAYFIELD_SCREEN
+      seconds := 60
+      @dude_after_dead()
+    end
+    else
+    begin
+      game_mode := MODE_GAME_OVER
+    end
+    @seconds_white_background()
+  end
+
+  handle_gems()
+
+  if live_update == 1 then
+  begin
+    live_update := 0
+    @update_lives()
+  end
+end
+
+//
+//                                          OOOO
+//  OOOOOO  OOOOOO OOO OO   OOOOO             OO    OOOOO   OOOOO  OOOOOO
+// OO   OO OO   OO OOOOOOO OO   OO            OO   OO   OO OO   OO OO   OO
+// OO   OO OO   OO OO O OO OOOOOOO            OO   OO   OO OO   OO OO   OO
+//  OOOOOO OO   OO OO O OO OO                 OO   OO   OO OO   OO OOOOOO
+//      OO  OOOOOO OO O OO  OOOOO          OOOOOOO  OOOOO   OOOOO  OO
+// OOOOOO                                                          OO
+
+procedure game_loop()
+begin
+
+  @start_displaylist_interrupts()
+  player4_flash := 6
+
+  @fade_in()
+
+  @init_Dude()       // x,y position of dude comes over global variable
+
+  // show dead enemy somewhere in the wall?
+  // @setDeadEnemy()
+
+  @init_play_start_game()
+
+  @are_you_ready()
+  timer := timercountdown
+  flicker_enemies := 0
+
+  nextFreeSprite := @getEnemies() + 2 // we need 2 sprites for the Dude
+
+  @clear_all_enemy()
+  @dude_blow_away()
+
+  @init_elevator(level)
+
+  gem_current := 255
+  gem_occur_in_second[3] := 55
+
+// for debug
+//  @fast_gotox(17)
+//  @printff("%d %d %d %d   ", gem_occur_in_second[0], gem_occur_in_second[1], gem_occur_in_second[2], gem_occur_in_second[3])
+  ch := 255
+
+  @init_play_music()
+
+  while game_mode == MODE_PLAY and lives > 0 do
+  begin
+    // Praktisch, es ist irgendwo mitten in einer Decke
+
+    // Just a Demo, to set 12 Players
+    // @waitline(6)
+    @checkkey()
+
+    if @hasLevelElevator(level) == 1 then
+    begin
+      @move_elevator()
+    end
+
+    @move_Dude()
+//    colbk := $34
+
+//    handleColor()
+
+//    @waitline(25)
+//    colbk := $30
+
+//    sprite_shape[0] := 20
+//    sprite_color[0] := COLOR_DUDE_P1
+//    sprite_x[0] := sprite_x[0] + 1
+//    sprite_y[0] := sprite_y[0] + 1
+//
+//    sprite_shape[1] := 21
+//    sprite_color[1] := COLOR_DUDE_P2
+//    sprite_x[1] := sprite_x[0]
+//    sprite_y[1] := sprite_y[0]
+//
+//    if sprite_x[0] > 160 then sprite_x[0] := 48
+//    if sprite_y[0] > 192 then sprite_y[0] := 40
+
+    // Animate skeletons
+//    @waitline(25)
+//    colbk := $34
+    @move_enemies()
+//    colbk := 0
+//    sprite_shape[2] := 40
+//    sprite_color[2] := COLOR_SKELETON
+//    sprite_x[2] := 80
+//    sprite_y[2] := 40+32
+//
+//    sprite_shape[3] := 40
+//    sprite_color[3] := COLOR_SKELETON
+//    sprite_x[3] := 160
+//    sprite_y[3] := 40+32+24+24+24
+//
+//    sprite_shape[4] := 50
+//    sprite_color[4] := COLOR_DARK_KNIGHT
+//    sprite_x[4] := 100
+//    sprite_y[4] := 40+32+24
+//
+//    sprite_shape[5] := 60
+//    sprite_color[5] := COLOR_ARCHER
+//    sprite_x[5] := 120
+//    sprite_y[5] := 40+32+24
+//
+//    sprite_shape[6] := 80
+//    sprite_color[6] := COLOR_VAMPIRE
+//    sprite_x[6] := 140
+//    sprite_y[6] := 40+32+24
+//
+//    sprite_shape[7] := 100
+//    sprite_color[7] := COLOR_WERWOLF
+//    sprite_x[7] := 80
+//    sprite_y[7] := 40+32+24+24
+//
+//    sprite_shape[8] := 110
+//    sprite_color[8] := COLOR_WIZARD
+//    sprite_x[8] := 140
+//    sprite_y[8] := 40+32+24+24
+//
+//    sprite_shape[9] := 110
+//    sprite_color[9] := COLOR_WIZARD
+//    sprite_x[9] := 160
+//    sprite_y[9] := 40+32+24+24
+//
+//    sprite_shape[10] := 48
+//    sprite_color[10] := $bc // COLOR_SKELETON
+//    sprite_x[10] := 128
+//    sprite_y[10] := 208 // 40+32+24+24+24+24+16
+//
+//    sprite_shape[11] := 80
+//    sprite_color[11] := COLOR_VAMPIRE
+//    sprite_x[11] := 136
+//    sprite_y[11] := 40+32+24+24+24+24
+
+//    block_color[4] := $32
+//    block_color[5] := $32
+//
+//    block_color[24] := $f6
+//    block_color[25] := $f6
+
+//    @mem[$1300] := 255
+//    @mem[$1308] := $F0
+//    @mem[$1310] := $F0
+//    @mem[$1318] := $F0
+//    @mem[$1320] := $F0
+//    @mem[$1328] := $F0
+//    @mem[$1330] := $F0
+//    @mem[$1338] := $F0
+//    @mem[$1340] := $F0
+//    @mem[$1348] := $F0
+//    @mem[$1350] := $F0
+//    @mem[$1358] := $F0
+//    @mem[$1300+160] := $F0
+//    @mem[$1300+192] := $F0
+//
+//    @mem[$b3F7] := $F0
+//
+//    colbk := 0
+
+
+    // Animation for the gems, we use a free sprite for that
+    if gem_current != 255 then
+    begin
+      gem_blow_index := gem_blow_index + 1
+      shape := blow[gem_blow_index]
+      if shape != 255 then
+      begin
+        sprite_shape[nextFreeSprite] := shape
+        sprite_color[nextFreeSprite] := COLOR_WHITE
+        sprite_x[nextFreeSprite] := gem_xpos[gem_current] + xoffset
+        sprite_y[nextFreeSprite] := gem_ypos[gem_current] + 8
+      end
+      else
+      begin
+        if gem_occured[gem_current] == 1 then
+        begin
+          // wir lassen den entsprechenden GEM erscheinen
+          @draw_gem(gem_current)
+          gem_occured[gem_current] := 2
+        end
+        gem_current := 255
+        sprite_x[nextFreeSprite] := 0 // sprite off!
+      end
+    end
+
+    // for debug
+    // !!!! THERE IS ENOUGH TIME !!!!
+//    @backcolorline($0f)
+//    colbk := 0
+
+    @wait_and_show_all_sprites()
+
+    if key_value == key_escape then
+    begin
+      game_mode := MODE_INTRO
+    end
+    else if key_value == key_space then
+    begin
+      show_Password()
+    end
+
+    @show_score()
+
+    timer := timer - 1
+
+    if timer == 0 then
+    begin
+      // we would like to flicker Enemies some seconds
+      if flicker_enemies != 0 then
+      begin
+        flicker_enemies := flicker_enemies - 1
+
+        for i:=0 to @getEnemies() do
+        begin
+          waitforani[i] := timercountdown
+        end
+
+        timer := timercountdown - 1
+      end
+      else
+      begin
+        timer := timercountdown
+        handle_seconds()
+      end
+    end
+  end
+  key_value := 0
+
+  @music_stop_timer()
+
+  @clear_all_enemy()
+  @dude_blow_away()
+
+  if player_mode == 0 then @check_for_new_highscore()
+  @wait_music_done()
+end
+
+procedure @you_cleared_the_stage()
+begin
+//  GPRIOR:=20  // 623 set Text over the Player Graphics, so the text is full readable
+  @showText("YOU CLEARED THE STAGE!")
+  @waitFrames(20)
+  @init_play_stage_done()
+  @waitFrames(5)
+  // @waitFrames(200 - seconds * 4)
+  @wait_music_done()
+
+  while seconds != 0 do
+  begin
+    seconds := seconds - 1
+    @fast_gotox(x_pos_score)
+    @printSmallDecimalWith0(seconds)
+    if seconds & $01 == 1 then
+    begin
+      @audio_play_inc_score()
+    end
+
+    @add_current_score(score_rest_seconds)
+    @show_score()
+    @waitFrames(3)
+  end
+  // TODO: zeitverzoegerung zum abschluss bong
+  if seconds & $01 == 1 then
+  begin
+    @waitFrames(3)
+  end
+  @audio_play_inc_score_end()
+  @waitFrames(25)
+end
+
+word savmsc=@
+
+//
+//                    OO
+//
+// OOO OO   OOOOOO  OOOO   OOOOOO
+// OOOOOOO OO   OO    OO   OO   OO
+// OO O OO OO   OO    OO   OO   OO
+// OO O OO OO   OO    OO   OO   OO
+// OO O OO  OOOOOO OOOOOOO OO   OO
+//
+
+byte coldst = @
+
+begin
+  srtimr := 1        // Keyboard repeat highspeed
+  KRPDEL := 1
+  keyrep := 1
+  coldst := 2
+
+  savmsc := adr:@game_screen
+  noclik:=$ff // kein Tastaturklick!
+
+  // chbas := $bc
+
+  hw_Frequence := @test_frequence()
+
+  @INIT_NMI_AND_DLI()
+  @music_init_interrupts(hw_Frequence) // MUSS vor Aktivierung von OS RAM passieren!
+
+  music_loudness := 12       // musik ~75%
+  intro_loudness := 12
+  sfx_loudness := 15
+
+  startlevel := 1
+  @init_password_set_salt(1)
+
+  @ACTIVATE_RAM()
+
+  @init_program()
+
+  @init_audio_play()
+
+  @approval()
+
+//  @outro()
+//  @really_game_over()
+//  @stage_cleared(10)
+
+  game_mode := MODE_INTRO
+//  game_mode := MODE_PLAY // MODE_INTRO
+
+  if game_mode == MODE_PLAY then
+  begin
+    @fade_out()
+    @init_screen(MESSAGE_SCREEN)
+  end
+  @init_game()
+
+  while 1==1 do
+  begin
+    if game_mode == MODE_PLAY then
+    begin
+      @init_level(level)
+
+      game_loop()
+
+      // Analyse what has going wrong
+
+      if game_mode == MODE_GAME_OVER or lives == 0 then
+      begin
+        @game_over()
+        game_mode := MODE_INTRO
+      end
+
+      else if game_mode == MODE_LEVEL_DONE then
+      begin
+        @you_cleared_the_stage()
+        if player_mode == 3 then // DISCO MODE
+        begin
+          level := level + 10
+          if level < 90 then
+          begin
+            if level > 80 then
+            begin
+              level := level - 79
+            end
+          end
+        end
+        else
+        begin
+          level := level + 1
+          // level := level + 5
+          // level := @getNextLevelWithElevator(level)
+        end
+        level_played := level_played + 1
+
+        if level > 80 then
+        begin
+          // Really Game Over, show outro!
+          @waitFrames(50)
+          @fade_out()
+          @stage_cleared(level_played)
+          @outro()
+          @really_game_over()
+          game_mode := MODE_INTRO
+        end
+        else
+        begin
+          game_mode := MODE_PLAY
+        end
+      end
+
+      @fade_out()
+      @stop_displaylist_interrupts()
+    end
+
+    if game_mode == MODE_INTRO then
+    begin
+      @intro()
+      @wait_no_key_pressed()
+    end
+  end
+end
+
+// HUFFMAN_DECODE.lab will generate by a script ./generate-huffman-decode-label.sh at time the playfields are compiled
+// So we hold the dynamic code generating, if there are changes in the playfields
+include "HUFFMAN_DECODE.lab"
+
+include "DEVIATE_SCREEN_OUT.INC"
+include "FAST_SCREEN_OUTPUT.INC"
+include "SCREEN_OUTPUT.INC"
+include "PRINTF.INC"
+include "FILLBYTE.INC"
+// include "GETCHAR.INC" // will not work because we use 64k
+include "BACKCOLORLINE.INC"
+include "BASIC.INC"
+include "MATH.INC"
+include "STICK.INC"
+include "STRING_ALIGNMENT.INC"
+include "STRING.INC"
+include "ATOI.INC"
+include "DIV10B.INC"
+include "RANDOM_MOD.INC"
+include "TEST-FREQUENCE.INC"
+
+include "PASSWORD.INC"
+include "HASH.INC"
+include "ROTATE_LEFT8.INC"
+
+include "night-knight-displaylist.INC"
+include "SKELETON.INC"
+include "DRACULA.INC"
+include "ARCHER.INC"
+include "GHOST.INC"
+include "KNIGHT.INC"
+include "WERWOLF.INC"
+include "WIZARD.INC"
+include "CAT.INC"
+include "DUDE.INC"
+include "GAME-DLI.INC"
+include "HIGHSCORE.INC"
+include "SHOWSCOR.INC"              // show current score
+include "PLYFIELD.INC"              // the playfield
+// include "huffman-decode-addr.INC"
+include "ENEMY.INC"
+include "enemy-data.INC"
+// include "dude-move.INC"
+include "ELEVATOR.INC"
+include "elevator_store.INC"
+include "DRAWBLOCK.INC"
+
+// include "font.INC" // ist jetzt in playfield-data und durch den preloader geladen
+include "LEVEL.INC"
+include "DESIGN.INC"
+include "TABLES.INC"
+
+include "ORBYTE.INC"
+include "multi-sprite-dli.INC"
+include "PLAYERM.INC"
+include "multi-sprite-multiplexer.INC"
+include "SPRITES.INC"
+include "INTRO.INC"
+include "KEYCODE.INC"
+
+include "AUDIOPLY.INC"
+include "music/NOTEN.INC"
+include "music/STEREO-HEXEN.INC"
+include "music/test-stereo-pokey.INC"
+include "music/night-knight-audio.INC"

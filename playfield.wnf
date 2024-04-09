@@ -1,0 +1,385 @@
+include pf:plyfield
+
+//
+// OOOOOO   OOOO                      OOOO    OO            OOOO        OO
+// OO   OO    OO    OOOOOO OO   OO   OO             OOOOO     OO        OO
+// OO   OO    OO   OO   OO OO   OO OOOOOOO  OOOO   OO   OO    OO    OOOOOO
+// OOOOOO     OO   OO   OO OO   OO   OO       OO   OOOOOOO    OO   OO   OO
+// OO         OO   OO   OO  OOOOOO   OO       OO   OO         OO   OO   OO
+// OO      OOOOOOO  OOOOOO      OO   OO    OOOOOOO  OOOOO  OOOOOOO  OOOOOO
+//                         OOOOOO
+
+byte pal=$D014
+byte ntsc_color_add = @ntsc_color_add
+
+byte xposition, yposition
+byte xpf, ypf
+byte numberOfPlayfield
+word screen = @screen
+word screen2
+word w_index
+byte value
+
+word item_screen
+word key_screen = @key_screen
+word key_background = @key_background
+word key_image = @key_image
+byte key_ypos_for_color = @key_ypos_for_color
+byte key_occured = @key_occured
+
+word door_screen = @door_screen
+word door_closed_image = @door_closed_image
+byte door_ypos_for_color
+
+word sandclock_screen = @sandclock_screen
+word sandclock_background = @sandclock_background
+word sandclock_image = @sandclock_image
+byte sandclock_occured = @sandclock_occured
+byte sandclock_ypos_for_color = @sandclock_ypos_for_color
+
+word stopwatch_screen = @stopwatch_screen
+word stopwatch_background = @stopwatch_background
+word stopwatch_image = @stopwatch_image
+byte stopwatch_occured = @stopwatch_occured
+byte stopwatch_ypos_for_color = @stopwatch_ypos_for_color
+
+word shield_screen = @shield_screen
+word shield_background = @shield_background
+word shield_image = @shield_image
+byte shield_occured = @shield_occured
+byte shield_ypos_for_color = @shield_ypos_for_color
+
+word gems_screen = @gems_screen
+word gems_background = @gems_background
+word gems_image = @gems_image
+
+byte countOfEnterableFloors = @countOfEnterableFloors
+
+byte dude_start_xpos = @dude_start_xpos
+byte dude_start_ypos = @dude_start_ypos
+
+// 40 64 88 112 136 160
+// neu:
+// 72 96 120 144 164 192
+
+// byte array ypf_to_enemy_ypos[1] = @ypf_to_enemy_ypos
+
+byte array block_color[32] = @block_c4
+
+// die 4. Farbe, fast ueberall $1c bis auf an der Stelle der Tuer und bei den Archers
+// Door color $f6
+byte array player4_color[32] = [
+0,0,0,0,$32,$32,0,
+color_yellow_pal, color_yellow_pal, color_yellow_pal, color_yellow_pal, color_yellow_pal,
+color_yellow_pal, color_yellow_pal, color_yellow_pal,
+color_yellow_pal, color_yellow_pal, color_yellow_pal,
+color_yellow_pal, color_yellow_pal, color_yellow_pal,
+color_yellow_pal, color_yellow_pal, color_yellow_pal,
+color_yellow_pal, color_yellow_pal, color_yellow_pal,
+color_white,0
+]
+
+
+byte enemy_xpos
+byte enemy_ypos
+
+word readonly array mul40[@split] = @mul40
+byte door_color = @door_color
+byte design
+byte background
+
+byte array gem_color[1] = @gem_color
+byte array gem_xpos[1] = @gem_xpos
+byte array gem_ypos[1] = @gem_ypos
+byte array gem_occur_in_second[1] = @gem_occur_in_second
+// word array gem_screen[@split] = @gem_screen
+
+byte xpf4
+byte ypf8
+
+byte i,j
+
+procedure @load_background(numberOfPlayfield)
+begin
+  design := @changeDesign(numberOfPlayfield)
+
+//  playfieldFilename[playfieldFilenameNumPos] := charOfPlayfield
+//  @open(1,4,0,adr:playfieldFilename)
+//  @bget(1, game_screen, 6)
+//  @bget(1, game_screen, 960)
+//  @close(1)
+  background := 0
+
+  if design == 4 then
+  begin
+     background := 1
+  end
+  else if design == 5 then
+  begin
+     background := 2
+  end
+
+  @huffman_decode(background, game_screen) // Default frame
+
+  // We use a 2 time playfield, the first is the background frame PLAYSB00-PLAYSB02 see level-design.wnf
+  // the second is the inner field PLAYS01DAT - PLAYS80.DAT
+  @huffman_decode(numberOfPlayfield+2, $1400) // load inner frame
+
+  @pre_init_enemy()
+
+  // Reset the block colors
+  //  @move(adr:player4_color, adr:@block_c4, player4_color_length)
+  for i:=0 to player4_color_length-1 do
+  begin
+    if pal != 1 then
+    begin
+      if player4_color[i] == color_yellow_pal then
+      begin
+        player4_color[i] := color_yellow_ntsc
+      end
+    end
+    block_color[i] := player4_color[i]
+  end
+
+  @init_gems() // All gems data set to 0
+
+  // Check the inner frame playfield for things and enemies
+  // if something found, fill into tables and remove it from inner frame playfield
+
+  screen := $1400
+
+  gems_screen := 0
+  shield_screen := 0
+  stopwatch_screen := 0
+  sandclock_screen := 0
+
+  @initGemsData()
+
+  // Run through the whole screen and remember every element
+  // which is no background/wall/floor
+
+  for ypf:=0 to 21 do
+  begin
+    // TODO: Herausfinden, warum die enemies 8 Zeilen niedriger liegen als der Dude
+    enemy_ypos := ypf * 8 + 40 // 8 + 32
+
+    for xpf:=0 to 39 do
+    begin
+      xpf4 := xpf * 4
+      ypf8 := ypf * 8 + 32
+
+      enemy_xpos := xpf4
+      // Da die im Spiel dargestellten Items fast immer 2x2 groß sind
+      // muessen wir eine Zeile zurueck rechnen (- 40)
+      item_screen := game_screen + mul40[ypf] + xpf - 40
+
+      value := @mem[screen] // run through inner frame
+      if value == THE_DUDE then
+      begin
+        dude_start_xpos := enemy_xpos
+        dude_start_ypos := ypf8
+      end
+
+      else if value == KEY then
+      begin
+        key_screen := item_screen
+        key_ypos_for_color := ypf+5
+      end
+
+      else if value == GEMS then
+      begin
+        gems_screen := item_screen
+        gem_color[0] := ypf + 5
+        gem_xpos[0] := xpf4
+        gem_ypos[0] := ypf8
+        gem_occur_in_second[0] := @randommod(25) + 10
+      end
+
+      else if value == SHIELD then
+      begin
+        shield_screen := item_screen
+        gem_color[1] := ypf + 5
+        gem_xpos[1] := xpf4
+        gem_ypos[1] := ypf8
+        gem_occur_in_second[1] := @randommod(20) + 15
+      end
+
+      else if value == SANDCLOCK then
+      begin
+        sandclock_screen := item_screen
+        gem_color[2] := ypf + 5
+        gem_xpos[2] := xpf4
+        gem_ypos[2] := ypf8
+        gem_occur_in_second[2] := @randommod(20) + 20
+      end
+
+      else if value == STOPWATCH then
+      begin
+        stopwatch_screen := item_screen
+        gem_color[3] := ypf + 5
+        gem_xpos[3] := xpf4
+        gem_ypos[3] := ypf8
+        gem_occur_in_second[3] := @randommod(20) + 25
+      end
+
+      else if value == DOOR then
+      begin
+        door_screen := item_screen
+        value := 0
+        door_ypos_for_color := ypf+5
+      end
+
+      else if value == BODEN_MESSER_1 or value == BODEN_MESSER_2 then
+      begin
+        @mem[screen] := value ! 128
+      end
+
+      // TODO: set Skeleton etc at a position from screen
+      else if value >= E_CAT and value <= E_SKELETON then
+      begin
+        // DEBUG: DARK_KNIGHT hart gecoded! muss wieder weg
+        // value := E_DARK_KNIGHT // E_SKELETON
+        @add_enemy(enemy_xpos, enemy_ypos, value)
+      end
+
+      if value >= 92 and value < 128 then
+      begin
+        @mem[screen] := 0
+      end
+
+      screen := screen + 1
+    end
+  end
+
+  // we must init the enemies after they are added
+  @post_init_enemy()
+
+  // @gem_occur_randomize()
+  // Algorithmus sorgt fuer den unterschied, siehe tests-more/test-array-change-if-equal.wnf
+  // mit 6 Durchlaeufen nicht zuu teuer
+  for j := 0 to 2 do
+  begin
+    for i := j+1 to 3 do
+    begin
+      if gem_occur_in_second[j] == gem_occur_in_second[i] then
+      begin
+        gem_occur_in_second[i] := gem_occur_in_second[i] + 1
+      end
+    end
+  end
+
+
+  // Setze Farben des Key
+  // am Ende die Farbe der Tuer setzen, die buegelt alle anderen ueber
+  block_color[key_ypos_for_color] := color_yellow_pal
+  block_color[key_ypos_for_color+1] := color_white
+
+  // Farben der GEMs sind alle white
+  for i:=0 to 3 do
+  begin
+    ypf := gem_color[i]
+    block_color[ypf] := color_white
+    block_color[ypf+1] := color_white
+  end
+
+  // Door Color ueberschreibt alles andere falls an gleicher Y-Position
+  block_color[door_ypos_for_color] := door_color
+  block_color[door_ypos_for_color+1] := door_color
+
+  // Copy inner frame playfield into the global playfield
+
+  screen2 := $1400
+  screen := game_screen
+
+  for w_index:=0 to 879 do // run through 22 lines
+  begin
+    value := @mem[screen2 + w_index]
+    if value != 0 then
+    begin
+      @mem[screen + w_index] := value
+    end
+  end
+
+  @clearbyte($1400, 1024)
+
+  screen := game_screen
+  countOfEnterableFloors := 0
+
+  // count all possible floors
+  for w_index:=0 to 879 do // run through 22 lines
+  begin
+    value := @mem[screen + w_index]
+    if value == FLOOR_2 then
+    begin
+      countOfEnterableFloors := countOfEnterableFloors + 1
+    end
+  end
+
+  @drawblock3x2(adr:door_closed_image, door_screen)
+
+  // Remember the background from each item
+  if key_screen != 0 then
+  begin
+    @storeBlock1x2(key_screen, adr:key_background)
+  end
+
+  if gems_screen != 0 then
+  begin
+    @storeBlock2x2(gems_screen, adr:gems_background)
+  end
+
+  if shield_screen != 0 then
+  begin
+    @storeBlock2x2(shield_screen, adr:shield_background)
+  end
+
+  if sandclock_screen != 0 then
+  begin
+    @storeBlock2x2(sandclock_screen, adr:sandclock_background)
+  end
+
+  if stopwatch_screen != 0 then
+  begin
+    @storeBlock2x2(stopwatch_screen, adr:stopwatch_background)
+  end
+end
+
+procedure @draw_gem(value)
+begin
+  if value == 0 then
+  begin
+    @drawblock2x2(adr:gems_image, gems_screen)
+  end
+  else if value == 1 then
+  begin
+    @drawblock2x2(adr:shield_image, shield_screen)
+  end
+  else if value == 2 then
+  begin
+    @drawblock2x2(adr:sandclock_image, sandclock_screen)
+  end
+  else if value == 3 then
+  begin
+    @drawblock2x2(adr:stopwatch_image, stopwatch_screen)
+  end
+end
+
+procedure @remove_gem(value)
+begin
+  if value == 0 then
+  begin
+    @drawblock2x2(adr:gems_background, gems_screen)
+  end
+  else if value == 1 then
+  begin
+    @drawblock2x2(adr:shield_background, shield_screen)
+  end
+  else if value == 2 then
+  begin
+    @drawblock2x2(adr:sandclock_background, sandclock_screen)
+  end
+  else if value == 3 then
+  begin
+    @drawblock2x2(adr:stopwatch_background, stopwatch_screen)
+  end
+end

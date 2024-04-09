@@ -1,0 +1,812 @@
+include itr:intro
+
+byte ntsc_color_add = @ntsc_color_add
+
+// Intro, outro
+byte prell
+
+byte consol = 53279
+byte CH = 764
+
+byte @keycode
+byte keycode = @keycode
+byte @key_value
+byte key_value = @key_value
+
+byte player_mode = @player_mode
+byte i
+
+// checkKey liest den internen Keycode (764) aus und falls er nicht $ff ist, wird er interpretiert zu ATASCII
+procedure @checkKey()
+begin
+  keycode := CH
+  if keycode != $ff then
+  begin
+    CH := 255              // wenn key_value != 255 CH auf 255 setzen (empfohlen)
+  // key_value := translateKeyCode[keycode]
+    key_value := @getKeyFromKeyCode(keycode)
+  end
+//  else
+//  begin
+//    key_value := 0
+//  end
+end
+
+word array loudness[1] = [
+"OPTION: MUSIC 75%  INTRO 75%",
+"OPTION: MUSIC 50%  INTRO 75%",
+"OPTION: MUSIC 50%  INTRO 50%",
+"OPTION: MUSIC 25%  INTRO 50%",
+"OPTION: MUSIC 25%  INTRO 25%",
+"OPTION: MUSIC  0%  INTRO 50%",
+"OPTION: MUSIC  0%  INTRO 25%",
+"OPTION: MUSIC  0%  INTRO  0%"
+]
+
+byte array music_loudness_array[1] = [
+  12,8,8,4,4,0,0,0
+]
+
+byte array intro_loudness_array[1] = [
+  12,12,8,8,4,8,4,0
+]
+
+byte music_loudness = @music_loudness
+byte intro_loudness = @intro_loudness
+
+byte current_loudness
+
+procedure showPlayMusic()
+begin
+  @fast_gotoy(8)
+  @centerText(loudness[current_loudness])
+end
+
+byte startlevel = @startlevel
+
+byte array headline_color[2] = @headline_color
+
+procedure sleep2()
+begin
+  @sleep(2)
+end
+
+procedure sleep6()
+begin
+  @sleep(6)
+end
+
+procedure wait_no_key_pressed()
+begin
+  if keycode != $ff then
+  begin
+    sleep6()       // entprellen
+    while ch != $ff do
+    begin
+      sleep2()
+      ch:=$ff
+    end
+  end
+end
+
+procedure clearscreen()
+begin
+  @clearbyte(game_screen, 960)
+end
+
+//
+//  ### ### #   #
+//    #   # ## ##
+//    #   # # # #
+//  ##  ##  # # #
+//
+procedure showJuanJMartinez()
+begin
+  @centerText("JUAN J. MARTINEZ")
+end
+
+byte value
+
+// Show Screen
+// MESSAGE_SCREEN
+// INTRO_SCREEN
+// OUTRO_SCREEN
+// else the game screen will shown
+procedure @init_screen(value)
+begin
+  // @clearbyte(pmadr[0], 1280)
+  @initPlayerMissile()
+  clearscreen()
+  sleep2()
+  show_screen := value
+  @start_displaylist_interrupts()
+  @fade_in()
+  @init_fastscreen(game_screen)
+  @init_set_bytes_per_line(40)
+end
+
+byte x
+
+procedure show_intro()
+begin
+  wait_no_key_pressed()
+
+  @init_screen(INTRO_SCREEN)
+
+  headline_color[0] := color_night_letter_1 + ntsc_color_add
+  headline_color[1] := color_night_letter_2 + ntsc_color_add
+  headline_color[2] := color_night_letter_3 + ntsc_color_add
+
+  // Spannungsbogen
+  @sleepASecond()
+
+  // 0123456789012345678901234567890123456789
+  //       SELECT: PASSWORD
+  //       SELECT: STAGE => 80  GODMODE
+  //       SELECT: PASSWORD  GODMODE
+  //       SELECT: PASSWORD  SIMPLE
+  //       SELECT: PASSWORD  DISKOS
+  //       OPTION: MUSIC 50%  INTRO: 75%
+
+  @fast_gotoxy(6, 6)
+  if startlevel == 1 then
+  begin
+    @printff("SELECT: PASSWORD")
+    x:=24
+  end
+  else
+  begin
+    @printff("SELECT: STAGE => ")
+    @printSmallDecimalWith0(startlevel)
+    x:=27
+  end
+
+  @fast_gotoxy(x, 6)
+  if player_mode == 1 then
+  begin
+    @printff("GODMODE")
+  end
+  else if player_mode == 2 then
+  begin
+    @printff("SIMPLE")
+  end
+  else if player_mode == 3 then
+  begin
+    @printff("DISKOS")
+  end
+
+  showPlayMusic()
+  @fast_gotoy(10)
+  @centerText("PRESS FIRE OR START KEY")
+
+  @fast_gotoy(12)
+  // 40 bytes  0123456789012345678901234567890123456789
+  @centerText("ATARI CODE, GRAPHICS AND SOUND")
+//  @centerText("ATARI CODE, GRAPHICS BY LARS LANGHANS")
+  @fast_gotoy(14)
+//  @centerText("ATARI SOUND BY ELSNI")
+//  @centerText("BY THE ATARI TEAM")
+  @centerText("LARS LANGHANS")
+
+  @fast_gotoy(16)
+  @centerText("ORIGINAL MSX VERSION BY THE LEGENDARY")
+
+  @fast_gotoy(18)
+  showJuanJMartinez()
+
+  @fast_gotoy(20)
+  @centerText("A.B.B.U.C. SOFTWARE CONTEST 2023")
+
+  if player_mode == 0 then @CHECK_FOR_NEW_HIGHSCORE()
+
+  @fast_gotoxy(15,0)
+  @printff("HI ")
+  @fast_gotox(18)
+  @print_highscore_in_title()
+
+end
+
+byte inMoveCursor
+byte in_password
+byte array password[6]
+
+procedure valueInPassword(value)
+begin
+  @fast_gotoxy(15 + in_password, 8)
+  @printff("%c", value)
+end
+
+byte array delete[1] = [
+%........, // pm offset $8c
+%........,
+%....1...,
+%...11...,
+%..1.111., // pm offset $90, we need to leave out, because missiles a behind the players
+%.1.1111.,
+%..11111.,
+%...11...,
+%....1...,
+%........,
+]
+
+byte array ok[1] = [
+%........, // pm offset $8c
+%.....11.,
+%...1.11.,
+%..11.11.,
+%.1.1111.,
+%1.11111.,
+%.11111..,
+%..11....,
+%...1....,
+%........,
+]
+
+byte array pfeil[1] = [
+%........,
+%...1....,
+%..111...,
+%.11.11..,
+%11...11.,
+%11...11.,
+%.1...1..,
+%.11111..,
+]
+
+byte array pfeil2[1] = [
+%...1....,
+%..111...,
+%.11.11..,
+%11...11.,
+%11...11.,
+%.1...1..,
+%.11111..,
+%........,
+]
+
+byte array pfeil3[1] = [
+%....1...,
+%...111..,
+%..11.11.,
+%.11...11,
+%.11...11,
+%..1...1.,
+%..11111.,
+%........,
+]
+
+byte array pfeil4[1] = [
+%........,
+%....1...,
+%...111..,
+%..11.11.,
+%.11...11,
+%.11...11,
+%..1...1.,
+%..11111.,
+]
+
+word array pfeile[1] = [
+  pfeil, pfeil2, pfeil3, pfeil4, 0
+]
+
+byte array HPOSP[4] = 53248
+byte array HPOSM[4] = 53252
+byte array colpm[4] = 704
+byte sizem = $D00C
+
+byte xcursor
+
+byte array move_cursor[1] = [
+0,
+4,4,4,4,4,4,4,4,
+4,4,4,4,4,4,4,
+6,8,255
+]
+
+byte currentAnimate
+byte currentAnimateSlow
+word currentPfeil
+
+procedure animatePfeil()
+begin
+  currentPfeil := pfeile[currentAnimate]
+  if currentPfeil == 0 then
+  begin
+    currentAnimate := 0
+    currentPfeil := pfeile[currentAnimate]
+  end
+
+  @move(currentPfeil, pm_base_addr + $696,8)
+
+  currentAnimateSlow := currentAnimateSlow + 1
+  if currentAnimateSlow > 3 then
+  begin
+    currentAnimateSlow := 0
+    currentAnimate := currentAnimate + 1
+  end
+end
+
+
+byte array passwordHex[4]
+byte stage
+
+word hashResult
+
+procedure checkForSpecial()
+begin
+  passwordHex[1] := password[0] * 16 ! password[1]
+  passwordHex[2] := password[2] * 16 ! password[3]
+  passwordHex[3] := password[4] * 16 ! password[5]
+
+  // TODO: Liste erstellen der 80 Passwoerter, netten raussuchen
+
+  player_mode := 0
+
+  // PASSWORD: ABCDEFGHIJKLMNOP
+  //      hex: 0123456789ABCDEF
+  // GO => 6E
+  // DM => 3C
+  // OD => E3
+  // PASSWORD: DEFGHIJKLMNOPQRS
+  //      hex: 0123456789ABCDEF
+  // GO => 3B
+  // DM => 09
+  // OD => B0
+  if passwordHex[1] == $3B and passwordHex[2] == $09 and passwordHex[3] == $B0 then
+  begin
+    player_mode := 1
+    @init_score_and_new_live(NEW_LIVE_AT_SCORE_IN_GODMOD)
+  end
+
+  // PASSWORD: DEFGHIJKLMNOPQRS
+  //      hex: 0123456789ABCDEF
+  // SI => F5
+  // MP => 9C
+  // LE => 81
+  if passwordHex[1] == $F5 and passwordHex[2] == $9C and passwordHex[3] == $81 then
+  begin
+    player_mode := 2
+    @init_score_and_new_live(NEW_LIVE_AT_SCORE_IN_SIMPLE)
+  end
+
+  // PASSWORD: DEFGHIJKLMNOPQRS
+  //      hex: 0123456789ABCDEF
+  // DI => 05
+  // SK => F7
+  // OS => BF
+  if passwordHex[1] == $05 and passwordHex[2] == $F7 and passwordHex[3] == $BF then
+  begin
+    player_mode := 3
+    @init_score_and_new_live(NEW_LIVE_AT_SCORE)
+  end
+end
+
+function checkpassword()
+begin
+  checkForSpecial()
+
+  currentAnimate := 0
+  currentAnimateSlow := 0
+
+  if player_mode == 0 then
+  begin
+    // Due to the fact we can't convert password back
+    // we must search for it in every stage
+
+    for player_mode := 0 to 3 do
+    begin
+      for stage := 1 to 80 do
+      begin
+        hashResult := @generate_Password(stage)
+
+        if @mem[hashResult+1] == passwordHex[1] and
+           @mem[hashResult+2] == passwordHex[2] and
+           @mem[hashResult+3] == passwordHex[3] then
+        begin
+          return stage
+        end
+        animatePfeil()
+      end
+    end
+  end
+  // Password nicht identifiziert
+  return 1
+end
+
+procedure insert_password()
+begin
+  prell := 1
+  startlevel := 1
+  in_password := 0
+
+  clearscreen()
+
+  headline_color[0] := 2
+  headline_color[1] := 2
+  headline_color[2] := 2
+
+// ...........ENTER.PASSWORD
+// ...............??????
+// ..........ABCDEFGHIJKLMNOP
+  @fast_gotoxy(11,6)
+  @printff("ENTER PASSWORD")
+
+  @fast_gotoxy(15,8)
+  @printff("??????")
+
+  @fast_gotoxy(10,10)
+  inMoveCursor := 0
+//  @printff("0123456789ABCDEF    ") // the right hex display
+//  @printff("KLMNOPQRSTUVWXYZ    ") // Original Night Knight
+  @printff("DEFGHIJKLMNOPQRS    ") // make "GODMOD" and "SIMPLE" possible
+//  @printff("ABCDEFGHIJKLMNOP    ") // make "GODMOD" possible
+
+  // This is the white in the colored arrows
+  @mem[pm_base_addr + $390] := [
+   //33221100
+    %01000100,
+    %10001000
+  ]
+
+  @move(adr:delete, pm_base_addr + $48c,10)
+  @move(adr:ok, pm_base_addr + $58c,10)
+  @move(adr:pfeil, pm_base_addr + $696,8)
+
+  hposp[0] := 152 // 48+104
+  hposp[1] := 160 // 48+104+8
+
+  hposm[3] := 154
+  hposm[1] := 161
+  sizem := 0
+
+  xcursor := 86 // 48+38
+
+  colpm[0] := color_pw_delete + ntsc_color_add
+  colpm[1] := color_pw_ok + ntsc_color_add
+  colpm[2] := color_pw_arrow + ntsc_color_add
+
+  colpm[7] := color_white
+
+  ch := 255
+
+
+  while 1==1 do
+  begin
+    sleep2() // @sleep(1)
+
+    hposp[2] := xcursor
+
+    if prell > 0 then
+    begin
+      prell := prell - 1
+      key_value := 0
+    end
+    else
+    begin
+      @checkKey()
+
+// for debug
+//      @fast_gotoxy(13,0)
+//      @printff("%d  CODE:%d  ", key_value, keycode)
+
+      if key_value == key_escape then break
+
+
+      if @stickleft(0) == 1 or key_value == 30 then
+      begin
+        if move_cursor[inMoveCursor] != 0 then
+        begin
+          xcursor := xcursor - move_cursor[inMoveCursor]
+          inMoveCursor := inMoveCursor - 1
+          prell := 5
+        end
+      end
+
+      if key_value == $7E then // key_delete
+      begin
+        if in_password > 0 then
+        begin
+          in_password := in_password - 1
+          valueInPassword('?')
+          password[in_password] := 0
+        end
+        prell := 5
+      end
+
+      if key_value >= 'D' and key_value <= 'S' then
+      begin
+        if in_password < 6 then
+        begin
+          valueInPassword(key_value)
+          password[in_password] := key_value - 'D'
+          in_password := in_password + 1
+        end
+        prell := 5
+      end
+
+      if key_value == 155 then break
+
+      if @stickright(0) == 1 or key_value == 31 then
+      begin
+        if move_cursor[inMoveCursor+1] != 255 then
+        begin
+          inMoveCursor := inMoveCursor + 1
+          xcursor := move_cursor[inMoveCursor] + xcursor
+          prell := 5
+        end
+      end
+
+// for debug
+//      @fast_gotoxy(10,0)
+//      @printff("incursor:%d ",inMoveCursor)
+//      @printff("stick(0):=%d key:=%d   ", @stick(0), keycode)
+
+      if @strig(0) == 0 or key_value == key_space then
+      begin
+        prell := 7
+
+        if inMoveCursor < 16 then
+        begin
+          if in_password < 6 then
+          begin
+            value := inMoveCursor
+            valueInPassword('D' + value)
+            password[in_password] := value
+            in_password := in_password + 1
+          end
+        end
+        if inMoveCursor == 16 then
+        begin
+          if in_password > 0 then
+          begin
+            in_password := in_password - 1
+            valueInPassword('?')
+            password[in_password] := 0
+          end
+        end
+        if inMoveCursor == 17 then
+        begin
+          break
+        end
+      end
+      wait_no_key_pressed()
+    end
+  end
+
+  wait_no_key_pressed()
+
+  if key_value != key_escape and in_password == 6 then
+  begin
+    // check password
+    startlevel := checkpassword()
+  end
+  key_value := 0
+
+  show_intro()
+end
+
+
+
+procedure @approval()
+begin
+  @init_screen(INTRO_SCREEN)
+
+  headline_color[0] := $00
+  headline_color[1] := $00
+  headline_color[2] := $00
+
+  @fast_gotoy(6)
+  @centerText("...WITH THE KIND PERMISSION")
+
+  @fast_gotoy(8)
+  @centerText("AND APPROVAL OF")
+
+  @fast_gotoy(10)
+  showJuanJMartinez()
+
+  @sleepASecond()
+  @sleepASecond()
+  @sleepASecond()
+  @sleepASecond()
+
+  @fade_out()
+
+  current_loudness := 1
+end
+
+procedure wait_music_done()
+begin
+  // wait as long as music plays
+  while @music_count_shapes_play() != 0 do
+  begin
+    sleep2()
+  end
+end
+
+procedure @really_game_over()
+begin
+  @init_screen(INTRO_SCREEN)
+
+  headline_color[0] := $00
+  headline_color[1] := $00
+  headline_color[2] := $00
+
+  @fast_gotoy(8)
+  @centerText("GAME  OVER")
+
+  @sleepASecond()
+
+  @init_play_game_over()
+  @sleepASecond()
+
+  wait_music_done()
+
+  @sleepASecond()
+  @sleepASecond()
+end
+
+// stage cleared, after last level
+// add ~100 points to score for every level played
+procedure @stage_cleared(value)
+begin
+  @init_screen(INTRO_SCREEN)
+
+  headline_color[0] := $00
+  headline_color[1] := $00
+  headline_color[2] := $00
+
+  @fast_gotoxy(0,0)
+  @show_heart_and_lives()
+  // @update_lives()    // TODO: Heart funktioniert hier nicht, passt nicht ganz von der Hoehe
+  @show_score()
+
+  @fast_gotox(x_pos_score)
+  @printSmallDecimalWith0(0)
+
+  @fast_gotox(32)
+  @printff("STAGE ")
+  @printSmallDecimalWith0(80)
+
+  @fast_gotoxy(11,8)
+  @printff("STAGE CLEARED:")
+
+  @sleepASecond()
+
+  for i:=1 to value do
+  begin
+    @fast_gotoxy(26,8)
+    @printSmallDecimalWith0(i)
+    @add_current_score(score_stage_cleared)
+
+    @show_score()
+    @audio_play_inc_score()
+    sleep6()
+  end
+
+  sleep6()
+  if player_mode == 0 then @check_for_new_highscore()
+  @audio_play_inc_score_end()
+
+  @sleepASecond()
+  @sleepASecond()
+  @sleepASecond()
+
+  @fade_out()
+end
+
+//
+//  OOOO           OO
+// OO  OO          OO
+// OO  OO OO  OO OOOOOO OOOOO   OOOO
+// OO  OO OO  OO   OO   OO  OO OO  OO
+// OO  OO OO  OO   OO   OO     OO  OO
+// OO  OO OO  OO   OO   OO     OO  OO
+//  OOOO   OOOOO    OOO OO      OOOO
+//
+
+procedure @outro()
+begin
+  @init_play_end_theme()
+  @init_screen(OUTRO_SCREEN)
+  @deviate_set_sleep_at_printfd(4) // simple feature to slow down the printf
+
+  headline_color[0] := color_castle_white
+  headline_color[1] := color_castle_gray
+  headline_color[2] := color_castle_dark_blue + ntsc_color_add
+  headline_color[3] := color_castle_yellow + ntsc_color_add
+
+  @fast_gotoy(1)
+  @centertext("SIR BERNARD CAN HAVE NOW SOME REST.")
+
+  @fast_gotoy(2)
+  @centertext("AND HE IS TIRED, INDEED!")
+
+  @fast_gotoy(3)
+  @centertext("WELL PLAYED, YOU HAVE COMPLETED")
+
+  @fast_gotoy(4)
+  @centertext("NIGHT KNIGHT!")
+
+  // for i:=0 to 7 do @sleepASecond()
+  wait_music_done()
+
+  @sleepASecond()
+
+  @fade_out()
+  @deviate_no_sleep_at_printfd()
+
+end
+
+//
+// OOOO          OO
+//  OO           OO
+//  OO  OOOOO  OOOOOO OOOOO   OOOO
+//  OO  OO  OO   OO   OO  OO OO  OO
+//  OO  OO  OO   OO   OO     OO  OO
+//  OO  OO  OO   OO   OO     OO  OO
+// OOOO OO  OO    OOO OO      OOOO
+//
+
+procedure @intro()
+begin
+  // startlevel := 1
+
+  show_intro()
+
+  // endless loop, wait for strig(0), start, option or select key
+  while 1==1 do
+  begin
+    if @strig(0) == 0 then
+    begin
+      break
+    end
+
+    if consol == 6 then // Start key
+    begin
+      break
+    end
+
+    if consol == 5 then // Select key
+    begin
+      insert_password()
+    end
+
+    if consol == 3 then // Option key
+    begin
+      current_loudness := (current_loudness + 1) & 7
+      intro_loudness := intro_loudness_array[current_loudness]
+      music_loudness := music_loudness_array[current_loudness]
+
+      showPlayMusic()
+      // @sleep(10)
+      sleep6()
+      sleep6()
+    end
+  end
+
+  while @strig(0) == 0 do // wait until we don't press play button
+  begin
+  end
+
+  @audio_play_start_pling()
+
+  // Flicker "START GAME"
+  for i:=0 to 6 do
+  begin
+    @fast_gotoy(10)
+    @centerText("          ")
+    sleep2()
+    sleep2()
+    @fast_gotoy(10)
+    @centerText("START GAME")
+    sleep6()
+  end
+
+  @fade_out()
+  sleep2()
+
+  @init_game()
+  game_mode := MODE_PLAY
+
+end

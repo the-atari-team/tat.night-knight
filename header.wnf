@@ -1,0 +1,242 @@
+//
+// OO  OO  OO         OO       OO         OO   OO         OO         OO       OO
+// OOO OO             OO       OO         OO  OO                     OO       OO
+// OOOOOO OOO   OOOOO OOOOO  OOOOOO       OO OO   OOOOO  OOO   OOOOO OOOOO  OOOOOO
+// OO OOO  OO  OO  OO OO  OO   OO         OOOO    OO  OO  OO  OO  OO OO  OO   OO
+// OO  OO  OO  OO  OO OO  OO   OO         OO OO   OO  OO  OO  OO  OO OO  OO   OO
+// OO  OO  OO   OOOOO OO  OO   OO         OO  OO  OO  OO  OO   OOOOO OO  OO   OO
+// OO  OO OOOO     OO OO  OO    OOO       OO   OO OO  OO OOOO     OO OO  OO    OOO
+//             OOOOO                                          OOOOO
+
+byte game_mode = @game_mode
+byte show_screen = @show_screen
+
+const pm_base_addr = $1000 // must align $800 (2k)!
+
+const NEW_LIVE_AT_SCORE = $3000
+const NEW_LIVE_AT_SCORE_IN_SIMPLE = $2500
+const NEW_LIVE_AT_SCORE_IN_GODMOD = $1500
+
+// for usage in @init_screen(value)
+const PLAYFIELD_SCREEN=0
+const MESSAGE_SCREEN=1
+const INTRO_SCREEN=2
+const OUTRO_SCREEN=3
+
+const SPEED_50=2
+const SPEED_66=3
+const SPEED_75=4
+const SPEED_80=5
+const SPEED_85=7
+const SPEED_90=10
+const SPEED_95=21
+const SPEED_98=50
+
+const MODE_INTRO=1
+const MODE_PLAY=2
+const MODE_GAME_OVER=3
+const MODE_ABBRUCH=4     // ESC pressed
+const MODE_LOST_LIVE=5
+const MODE_LEVEL_DONE=6
+const MODE_OUT_OF_TIME=7
+const MODE_NO_MORE_LIVES=8
+
+const DIRECTION_STAY_LOOK_RIGHT=1  // %00000001
+const DIRECTION_STAY_LOOK_LEFT=2   // %00000010
+
+const DIRECTION_WALK=4             // %00000100
+const DIRECTION_WALK_RIGHT=5       // %00000101
+const DIRECTION_WALK_LEFT=6        // %00000110
+
+const DIRECTION_JUMP=8             // %00001000
+const DIRECTION_JUMP_RIGHT=9       // %00001001
+const DIRECTION_JUMP_LEFT=10       // %00001010
+
+const DIRECTION_DEAD=16            // %00010000
+const DIRECTION_DEAD_RIGHT=17      // %00010001
+const DIRECTION_DEAD_LEFT=18       // %00010010
+
+const DIRECTION_BLOW_AWAY=128      // %10000000
+
+const MAX_SPRITES=16
+const MAX_ENEMIES=14
+
+// in Font
+
+const WALL_1 = 2
+const WALL_2 = 3
+
+const BACKGROUND_DASH_1 = 5
+const BACKGROUND_DASH_2 = 6
+const BACKGROUND_DASH_3 = 7
+const BACKGROUND_DASH_4 = 8
+
+const FLOOR_YELLOW_1 = 137  // 9 + 128
+const FLOOR_YELLOW_2 = 138  // 7 + 128
+const FLOOR_1 = 11
+const FLOOR_2 = 12
+
+const DOOR_CLOSED_1=147 // 13 + 128 = 141
+const DOOR_CLOSED_2=148
+const DOOR_CLOSED_3=149
+const DOOR_CLOSED_4=150
+const DOOR_CLOSED_5=151
+const DOOR_CLOSED_6=152
+
+const DOOR_OPENED_1=153 // 19 + 128 = 147
+const DOOR_OPENED_2=154
+const DOOR_OPENED_3=155
+const DOOR_OPENED_4=156
+const DOOR_OPENED_5=157
+const DOOR_OPENED_6=158
+
+const KEY_1=159
+const KEY_2=160
+
+const BODEN_MESSER_1=13
+const BODEN_MESSER_2=14
+const BODEN_MESSER_1HI=141
+const BODEN_MESSER_2HI=142
+
+const ELEVATOR_1=86
+const ELEVATOR_2=87
+const ELEVATOR_3=88
+const ELEVATOR_4=89
+const ELEVATOR_5=90
+const ELEVATOR_6=91
+// const ELEVATOR_7=92 // wird nur fuer < condition verwendet!
+
+const SANDCLOCK_1=220 // 92
+const SANDCLOCK_2=221
+const SANDCLOCK_3=222
+const SANDCLOCK_4=223
+
+const STOPWATCH_1=224 // 96
+const STOPWATCH_2=225
+const STOPWATCH_3=226
+const STOPWATCH_4=227
+
+const SHIELD_1=228 // 100
+const SHIELD_2=229
+const SHIELD_3=230
+const SHIELD_4=231
+
+const GEMS_1=232 // 104
+const GEMS_2=233
+const GEMS_3=234
+const GEMS_4=235
+
+const game_screen = @game_screen
+const score_text = @score_status_text
+
+const xoffset=48
+// const yoffset=32
+
+// Values in playfield for positioning
+const THE_DUDE=127
+const KEY=126
+const DOOR=125
+const SANDCLOCK=124
+const SHIELD=123
+const GEMS=122
+const STOPWATCH=121
+
+const E_SKELETON=119
+const E_ARCHER=118
+const E_DARK_KNIGHT=117
+const E_GHOST=116
+const E_VAMPIRE=115
+const E_WIZARD=114
+const E_WERWOLF=113
+const E_CAT=112
+
+const IDX_SKELETON=1
+const IDX_ARCHER=2
+const IDX_DARK_KNIGHT=3
+const IDX_GHOST=4
+const IDX_VAMPIRE=5
+const IDX_WIZARD=6
+const IDX_WERWOLF=7
+const IDX_CAT=8
+const IDX_ARROW=9
+const IDX_BAT=10
+const IDX_BLOW=11
+
+const ANIM_JUMP_UP = 253
+const ANIM_JUMP_DOWN = 254
+const ANIM_END = 255
+
+const COLOR_SKELETON=$0A     // gray
+const COLOR_ARCHER=$1C       // light yellow
+const COLOR_DARK_KNIGHT=$9A  // turkis
+const COLOR_GHOST=$0F        // white
+const COLOR_VAMPIRE=$78      // dark blue
+const COLOR_WIZARD=$48
+const COLOR_WERWOLF=$38      // red
+const COLOR_CAT=$B8          // green
+const COLOR_ARROW=$3A        // red
+const COLOR_BAT=$78          // dark blue
+const COLOR_BLOW=$1F
+
+byte @ntsc_color_add = $7d
+byte DUDE_COLOR_P1 = $7e
+byte DUDE_COLOR_P2 = $7f
+
+const COLOR_DUDE_P1_PAL=$2f
+const COLOR_DUDE_P2_PAL=$18
+
+const COLOR_DUDE_P1_NTSC=$3f
+const COLOR_DUDE_P2_NTSC=$28
+
+const color_yellow_pal = $ef
+const color_yellow_ntsc = $ff
+
+const color_white = $0F
+
+const color_pw_delete=$34
+const color_pw_ok=$BA
+const color_pw_arrow=$1F
+
+const color_castle_white = $0F // white (moon)
+const color_castle_gray = $0A // gray (moon gray)
+const color_castle_dark_blue = $84 // dark blue (background)
+const color_castle_yellow = $1F // yellow (window)
+
+const key_option = 3
+const key_select = 2
+const key_start = 1
+const key_escape = 27
+const key_space = 32
+const key_left = 30
+const key_right = 31
+const key_p = 80
+
+const score_enter_floor = $10
+const score_rest_seconds = $10
+const score_gems = $500
+const score_stage_cleared = $100
+
+const color_night_letter_1 = $1a
+const color_night_letter_2 = $1c
+const color_night_letter_3 = $1e
+
+// Nothing for stopwatch, shield, sandclock
+
+// Canal fuer die Geraeusche
+const pacman_canal = 0
+const ghost_canal = 1
+const augen_canal = 2
+const tic_toc_canal = 3
+
+const x_pos_heart = 48 // XPosition Heart (fuer Missile 0)
+const x_pos_score = 19 // 19 is middle of the screen, für graphics 0 Zeichen, daraus wird Missile 2 berechnet (x*4)+48
+
+const AUDCTL_9BIT_POLY=%10000000
+const AUDCTL_12_1_79M= %01000000
+const AUDCTL_34_1_79M= %00100000
+const AUDCTL_12_16BIT= %00010000
+const AUDCTL_34_16BIT= %00001000
+
+const AUDCTL_15K=      %00000001
+const AUDCTL_64K=       0
+const AUDCTL_0= 0

@@ -1,0 +1,212 @@
+include lvl:level
+
+byte numberOfPlayfield
+byte lives = @lives
+byte seconds = @seconds
+byte shield_protection = @shield_protection
+
+word text
+byte colbk=$d01a
+
+procedure @wait_and_show_all_sprites()
+begin
+  @waitline(113)
+  @show_sprites()
+end
+
+procedure @sleepASecond()
+begin
+  @sleep(50)
+end
+
+byte i
+byte frames
+
+procedure @waitFrames(frames)
+begin
+  for i:=0 to frames do
+  begin
+    @wait_and_show_all_sprites()
+  end
+end
+
+procedure @centerText(text)
+begin
+  // if we would like to use @printfd(), make sure DEVIATE_SCREEN_OUT is included
+  // if not included, make sure OS is active or
+  //
+  @printfd("%s", @stralign("^40", text))
+end
+
+byte array sprite_x[MAX_SPRITES] = @sprite_x
+byte array sprite_y[MAX_SPRITES] = @sprite_y
+byte array sprite_shape[MAX_SPRITES] = @sprite_shape
+byte array sprite_color[MAX_SPRITES] = @sprite_color
+
+byte level = @level // contains always the current level
+
+byte color1=708
+byte color
+
+byte ntsc_color_add = @ntsc_color_add
+
+// we have a extra displaylist with all interrupts but in the middle
+// a graphics 0 line to show normal text
+// We use 4 sprites and show it left and right in graphics 0 line
+// looks very nice
+procedure @showText(text)
+begin
+  @clear_all_enemy()
+  @clear_dude()
+
+  // FIX, normally we use color1 for our sprites,
+  // but for level 31-40 we must use  an other color
+  color := color1
+  if level >= 31 and level < 41 then
+  begin
+    color := $16 + ntsc_color_add
+  end
+
+  // simple position the 4 sprites, the sprite content will manipulate in level-design.wnf
+  sprite_shape[2] := 38
+  sprite_color[2] := color
+  sprite_x[2] := 48
+  sprite_y[2] := 120 // 40+32+24+24
+
+  sprite_shape[3] := 39
+  sprite_color[3] := color
+  sprite_x[3] := 56
+  sprite_y[3] := 120
+
+  sprite_shape[4] := 38
+  sprite_color[4] := color
+  sprite_x[4] := 192
+  sprite_y[4] := 120
+
+  sprite_shape[5] := 39
+  sprite_color[5] := color
+  sprite_x[5] := 200
+  sprite_y[5] := 120
+
+  show_screen := MESSAGE_SCREEN
+  @fast_gotoy(2)
+  @centerText(text)
+  @fast_gotoxy_clear()
+end
+
+// show READY? in the middle of the playfield.
+// wird ca. 2s eingeblendet und dann einfach abgeschaltet
+procedure @are_you_ready()
+begin
+  @showText("ARE YOU READY?")
+  @waitFrames(125)
+
+  show_screen := PLAYFIELD_SCREEN
+end
+
+// DAS MUSS WIEDER RAUS
+//procedure @SORRY_DEMO()
+//begin
+//  @showText("THIS IS JUST A DEMONSTRATION MUST QUIT!")
+//
+//  while @strig(0) == 1 do
+//  begin
+//    @wait_and_show_all_sprites()
+//  end
+//
+//  show_screen := 0
+//end
+
+procedure @stage_out_of_time()
+begin
+//  GPRIOR:=20  // 623 set Text over the Player Graphics, so the text is full readable
+  @showText("YOU RUN OUT OF TIME!")
+  @waitFrames(125)
+
+  for i:=2 to 5 do
+  begin
+    sprite_x[i] := 0
+  end
+end
+
+procedure @game_over()
+begin
+  @init_play_game_over()
+  @showText("GAME OVER!")
+  @waitFrames(200)
+end
+
+// Missile graphics, behind the heart in the top left.
+byte array heartbackground[1] = [0,$0e,$0e,$0e,%00000110,%00000100,0,0]
+
+procedure @update_lives()
+begin
+  @fast_gotox(2)
+  @printff("%d ", lives)
+end
+
+procedure @show_heart_and_lives()
+begin
+  @fast_gotox(0)
+  @printff("]*")
+  @update_lives()
+end
+
+procedure @show_shield_Lives()
+begin
+  @fast_gotox(0)
+  @printff("[*")
+  @update_lives()
+end
+
+procedure @initHeart()
+begin
+  @move(adr:heartbackground, pm_base_addr + $0325, 7)
+  @show_heart_and_lives()
+end
+
+procedure @init_Shield()
+begin
+  @heart_white()
+  @show_shield_Lives()
+end
+
+procedure @init_level(numberOfPlayfield)
+begin
+  // Level immer laden, nur so bekommen wir neue Cookies
+  @load_background(numberOfPlayfield)
+
+  @initHeart()
+  shield_protection := 0 // In jedem Level muss das Shield neu gesammelt werden
+//  @fast_gotox(16)
+//  @printff("%d", countOfEnterableFloors)
+
+  seconds := 60
+  @fast_gotox(x_pos_score)
+  @printSmallDecimalWith0(seconds)
+//  @printff("%d", seconds)
+
+  @fast_gotox(32)
+  @printff("STAGE ")
+  @printSmallDecimalWith0(numberOfPlayfield)
+
+end
+
+//byte value
+
+//procedure @printSeconds(seconds)
+//begin
+//  @fast_gotox(19)
+//  @printSmallDecimalWith0(seconds)
+//  // @printff("%d ", seconds)
+//  if seconds < 10 then
+//  begin
+//    for i:=37 to 43 do
+//    begin
+//      value := @mem[$1300 + i]
+//      @mem[$1300+i] := value ! $30
+//    end
+//    // @fillbyte($ff,$B300+37,7) // $b700+28
+//  end
+//end
+

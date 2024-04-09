@@ -1,0 +1,198 @@
+include ap:audioply
+
+//
+//                   OO  OO
+//                   OO
+//  OOOOO OO  OO  OOOOO OOO   OOOO
+// OO  OO OO  OO OO  OO  OO  OO  OO
+// OO  OO OO  OO OO  OO  OO  OO  OO
+// OO  OO OO  OO OO  OO  OO  OO  OO
+//  OOOOO  OOOOO  OOOOO OOOO  OOOO
+//
+
+byte PAL	= $D014 // 53268 ; 1=PAL, $E=NTSC
+
+const audio_yellow_shape = 1
+const audio_jump = 2
+const first_canal = 0
+
+byte @music_loudness
+byte @intro_loudness
+byte @sfx_loudness
+byte xpos
+
+procedure @audio_play_make_yellow(xpos)
+begin
+  @music_play_single_shape(first_canal, audio_yellow_shape, xpos)
+end
+
+procedure @audio_play_dude_jump(xpos)
+begin
+  @music_play_single_shape(first_canal, audio_jump, xpos)
+end
+
+const audio_inc_score = 3
+const audio_inc_score_end = 4
+
+procedure @audio_play_inc_score()
+begin
+  @music_play_single_shape(first_canal, audio_inc_score)
+end
+
+procedure @audio_play_inc_score_end()
+begin
+  @music_play_single_shape(first_canal, audio_inc_score_end)
+end
+
+const audio_start_pling = 5
+
+procedure @audio_play_start_pling()
+begin
+  @music_play_single_shape(first_canal, audio_start_pling)
+end
+
+const audio_take_key = 6
+
+procedure @audio_play_take_key(xpos)
+begin
+  @music_play_single_shape(first_canal, audio_take_key, xpos)
+end
+
+procedure @audio_play_take_gem(xpos)
+begin
+  @music_play_single_shape(first_canal, audio_take_key, xpos)
+end
+
+const audio_key_occur = 7
+
+procedure @audio_play_key_occur()
+begin
+  @music_play_single_shape(first_canal, audio_key_occur)
+end
+
+const audio_gem_occur = 8
+
+procedure @audio_play_gem_occur()
+begin
+  @music_play_single_shape(first_canal, audio_gem_occur)
+end
+
+procedure @audio_play_gem_remove()
+begin
+// kein Geraeusch, wenn ein GEM wieder verschwindet
+//  @music_play_single_shape(first_canal, audio_gem_occur)
+end
+
+
+const audio_enter_open_door = 9
+
+procedure @audio_play_enter_open_door(xpos)
+begin
+  @music_play_single_shape(first_canal, audio_enter_open_door, xpos)
+end
+
+
+const audio_dude_died = 10
+
+procedure @audio_play_dude_died()
+begin
+  @music_play_single_shape(first_canal, audio_dude_died)
+end
+
+const audio_second_tic = 11
+
+procedure @audio_play_second_tic()
+begin
+  @music_play_single_shape(first_canal, audio_second_tic)
+end
+
+const audio_arrow = 12
+
+procedure @audio_play_arrow()
+begin
+  @music_play_single_shape(first_canal, audio_arrow)
+end
+
+
+byte array audio_takt_night_knight_game_over[2] = @audio_takt_night_knight_game_over
+byte array audio_takt_night_knight_start_game[2] = @audio_takt_night_knight_start_game
+byte array audio_takt_night_knight_stage_done[2] = @audio_takt_night_knight_stage_done
+byte array audio_takt_night_knight_music[2] = @audio_takt_night_knight_music
+byte array audio_takt_night_knight_end_theme[2] = @audio_takt_night_knight_end_theme
+
+const SPEED_1 = 1
+const SPEED_2 = 2
+
+procedure @init_audio_play()
+begin
+//  @music_init(adr:@night_knight_audio_table, AUDCTL_34_16BIT ! AUDCTL_34_1_79M, 0, %00000111)
+  if pal != 1 then
+  begin
+    audio_takt_night_knight_game_over[1] := SPEED_2
+    audio_takt_night_knight_start_game[1] := SPEED_2
+    audio_takt_night_knight_stage_done[1] := SPEED_2
+    audio_takt_night_knight_music[1] := SPEED_2
+    audio_takt_night_knight_end_theme[1] := SPEED_1
+  end
+
+  @music_init(adr:@night_knight_audio_table, 0)
+end
+
+procedure @audio_play_wait_as_long_music_plays()
+begin
+  while @music_count_shapes_play() != 0 do
+  begin
+    @waitline(14)
+  end
+end
+
+procedure @audio_play_stop()
+begin
+  @music_stop_timer()
+end
+
+procedure @audio_set_music_loudness_1110()
+begin
+  @music_set_loudness(@music_loudness, %00001110)
+  @music_set_loudness(@sfx_loudness, %00000001)
+end
+
+procedure @audio_set_intro_loudness_1111()
+begin
+  @music_set_loudness(@intro_loudness, %00001111)
+end
+
+procedure @init_play_music()
+begin
+  @music_init(adr:@night_knight_audio_table, adr:@audio_takt_night_knight_music)
+  @audio_set_music_loudness_1110()
+  @music_start_timer()
+end
+
+procedure @init_play_start_game()
+begin
+  @music_init(adr:@night_knight_audio_table, adr:@audio_takt_night_knight_start_game)
+  @audio_set_intro_loudness_1111()
+  @music_start_timer()
+end
+
+procedure @init_play_game_over()
+begin
+  @music_init(adr:@night_knight_audio_table, adr:@audio_takt_night_knight_game_over)
+  @audio_set_intro_loudness_1111()
+  @music_start_timer()
+end
+
+procedure @init_play_stage_done()
+begin
+  @music_init(adr:@night_knight_audio_table, adr:@audio_takt_night_knight_stage_done)
+  @music_set_loudness(@intro_loudness, %00001110)
+  @music_start_timer()
+end
+
+procedure @init_play_end_theme()
+begin
+  @music_init(adr:@night_knight_audio_table, adr:@audio_takt_night_knight_end_theme)
+  @audio_set_music_loudness_1110()
+  @music_start_timer()
+end

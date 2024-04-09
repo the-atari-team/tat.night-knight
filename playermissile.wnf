@@ -1,0 +1,39 @@
+include pm:playerm
+
+//word array @pmadr[5] = [
+//$B300,
+//$B400,
+//$B500,
+//$B600,
+//$B700,
+//]
+
+byte array PCOLR[4]=704
+byte sdmctl=559
+byte gractl=53277
+byte pmbase=54279
+byte gprior=623
+
+procedure @initPlayerMissile()
+begin
+  PCOLR[0]:=$00
+  PCOLR[1]:=$00
+  PCOLR[2]:=$00
+  PCOLR[3]:=$00
+
+  SDMCTL:=$3E // 559
+//        $20 + // DMA
+//        $10 + // einzeilige Aufloesung
+//        $08 + // DMA Player ein
+//        $04 + // DMA Missiles ein
+//        $02   // normales Anzeigefeld (40 bytes)
+
+  GRACTL := %00000011 // 3 53277
+// TODO: pmbase := HI:address
+  PMBASE:=$10 // 54279
+  GPRIOR := %00010001 // 17  // 623
+//        16 + // Die 4 Missiles werden zu 5. Player (Color 711)
+//         1   // Player 0-3, Anzeigefeld 0-3, Hintergrund
+
+  @init_sprites()
+end

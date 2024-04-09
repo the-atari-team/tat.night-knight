@@ -1,0 +1,33 @@
+include SS:showscor
+
+byte bcd_current_score = @bcd_current_score
+
+byte bcd_current_score_old
+
+// shows the current score.
+// right to the lives of Dude
+procedure @show_score()
+begin
+// Score nur aktualisieren, wenn er sich geaendert hat
+  if @has_current_score_changed() != 0 then
+  begin
+    @fast_gotoxy(6,0)
+    // zu teuer!
+    // @printff("%x%x%x%x0", bcd_current_score4, bcd_current_score3, bcd_current_score2, bcd_current_score1)
+    // also mal eben selbst in Assembler runtergeschrieben
+    @print_score()
+
+    // we change highscore only if NOT in godmode
+//    if game_difficult != 0 then
+//    begin
+//    if @CHECK_FOR_NEW_HIGHSCORE() == 1 then
+//    begin
+//      @fast_gotox(32)
+//      @print_highscore()
+      // zu teuer!
+      // @printff("%x%x%x%x0", bcd_highscore4, bcd_highscore3, bcd_highscore2, bcd_highscore1)
+//    end
+//    end
+    @remember_current_score()
+  end
+end

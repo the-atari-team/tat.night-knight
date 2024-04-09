@@ -1,0 +1,81 @@
+include hs:hash
+
+// This hash algorithm based on md5sum
+// it uses 4 Variables A,B,C,D
+// a shift table
+// a K table with a sinus precalculated
+// but every variable is only 8 bit wide
+// It will not initialise the memory by "1".
+// works as expected.
+
+byte A,B,C,D
+byte F,G
+
+byte array shift[1] = [
+1,2,3,4, 5,6,7,0,
+3,4,5,6, 7,0,1,2,
+5,6,7,0, 1,2,3,4,
+7,0,1,2, 3,4,5,6
+]
+
+// double n = Math.floor(0x100 * Math.abs (Math.sin(i + 1)));
+
+byte array K[1] = [
+215,232,36,193,245,71,168,253,
+105,139,255,137,107,253,166,73,
+246,192,38,233,214,2,216,231,
+33,195,244,69,169,252,103,141
+]
+
+word addrOfHashResult
+word addr
+word count
+word n
+
+byte i
+
+// @hash(4 bytes for hash result, address of memory to build a hash, count of bytes)
+// count must a something of mult 4
+procedure @hash(addrOfHashResult, addr, count)
+begin
+
+  a := $01
+  b := $89
+  c := $fe
+  d := $76
+
+  for n:=0 to count-1 step 4 do
+  begin
+    for i:=0 to 31 do
+    begin
+      if i>=0 and i<8 then
+      begin
+        F := (B & C) ! ((B xor $ff) & D)
+        g := i // 0=even 1=odd 2=even
+      end
+      else if i>=8 and i<16 then
+      begin
+        F := (D & B) ! ((D xor $ff) & C)
+        g := i * 5 + 1 // 0=odd 1=even
+      end
+      else if i>=16 and i<24 then
+      begin
+        F := B xor C xor D
+        g := i * 3 + 5 // 0=odd 1=even
+      end
+      else // if i>=24 and i<32 then
+      begin
+        F := C xor (B ! (D xor $FF))
+        g := i * 7 // 0=even 1=odd 2=even
+      end
+
+      F := F + A + K[i] + @mem[addr + n + (g & 3)]
+      A := D
+      D := C
+      C := B
+      B := B + @rotate_left8(F, shift[i])
+    end
+  end
+
+  @mem[addrOfHashResult] := [A,B,C,D]
+end
