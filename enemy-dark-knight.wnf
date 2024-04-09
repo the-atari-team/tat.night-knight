@@ -1,0 +1,171 @@
+include drk:knight
+
+byte array @knight_to_left_0[16] = [
+%.......1,
+%.11111..,
+%11111.11,
+%11..11.1,
+%.....11.,
+%.1...1..,
+%1111.1..,
+%111.....,
+%.....1..,
+%..1.111.,
+%........,
+%..1.11..,
+%....11..,
+%........,
+%...11...,
+%..111...,
+]
+
+byte array @knight_to_left_1[16] = [
+%.11111.1,
+%11111.1.,
+%11..11.1,
+%.....11.,
+%.1...1..,
+%1111.1..,
+%111.....,
+%.....11.,
+%1.1.1...,
+%1.....11,
+%...11.11,
+%1.1.1...,
+%1111.111,
+%111..111,
+%.1.....1,
+%........,
+]
+
+byte array @knight_to_left_2[16] = [
+%.1111..1,
+%11111.11,
+%11..11.1,
+%.....11.,
+%.1...1..,
+%1111.1..,
+%111.....,
+%.....1..,
+%....1.1.,
+%.11..1..,
+%.11.1...,
+%........,
+%.1....11,
+%.11.1111,
+%111....1,
+%........,
+]
+
+byte array @dark_knight_to_left[12] = [
+50,50,50, // @knight_to_left_0,
+51,51,51,// @knight_to_left_1,
+52,52,52, // @knight_to_left_0,
+53,53,53, // @knight_to_left_2,
+ANIM_END
+]
+
+// To rotate a line in emacs
+// (fset 'rotate-line
+//   [right ?\C-  right right right right ?\C-w right right right right ?\C-y home right ?\C-  right right ?\C-w right right ?\C-y ?\C-  right right ?\C-w right right ?\C-y home right right ?\C-t right right left ?\C-t right ?\C-t right ?\C-t home down])
+
+byte array @knight_to_right_0[16] = [
+%1.......,
+%..11111.,
+%11.11111,
+%1.11..11,
+%.11.....,
+%..1...1.,
+%..1.1111,
+%.....111,
+%..1.....,
+%.111.1..,
+%........,
+%..11.1..,
+%..11....,
+%........,
+%...11...,
+%...111..,
+]
+
+byte array @knight_to_right_1[16] = [
+%1.11111.,
+%.1.11111,
+%1.11..11,
+%.11.....,
+%..1...1.,
+%..1.1111,
+%.....111,
+%.11.....,
+%...1.1.1,
+%11.....1,
+%11.11...,
+%...1.1.1,
+%111.1111,
+%111..111,
+%1.....1.,
+%........,
+
+]
+
+byte array @knight_to_right_2[16] = [
+%1..1111.,
+%11.11111,
+%1.11..11,
+%.11.....,
+%..1...1.,
+%..1.1111,
+%.....111,
+%..1.....,
+%.1.1....,
+%..1..11.,
+%...1.11.,
+%........,
+%11....1.,
+%1111.11.,
+%1....111,
+%........,
+]
+
+byte array @dark_knight_to_right[12] = [
+54,54,54, // @knight_to_right_0,
+55,55,55, // @knight_to_right_1,
+56,56,56, // @knight_to_right_0,
+57,57,57, // @knight_to_right_2,
+ANIM_END
+]
+
+byte RANDOM	= $D20A
+
+// xy position of enemies
+byte array xpos[MAX_ENEMIES] = @enemy_xpos
+byte array ypos[MAX_ENEMIES] = @enemy_ypos
+
+// xy movement of enemies
+byte array xstep[MAX_ENEMIES] = @enemy_xstep
+byte array ystep[MAX_ENEMIES] = @enemy_ystep
+
+byte index = @enemy_index
+
+word screen = @screen
+byte topfloor
+
+// tables for jump
+byte array is_jump[MAX_ENEMIES] = @enemy_is_jump
+byte array is_jump_up[MAX_ENEMIES] = @enemy_is_jump_up
+byte array jump_animation[MAX_ENEMIES] = @enemy_jump_animation
+
+procedure @dark_knight_maybe_jump_up()
+begin
+  if RANDOM < 32 and xpos[index] & 3 == 1 then
+  begin
+    topfloor := @mem[screen + 1]
+    if @isFloorToJump(topfloor) == 1 then
+    begin
+      // Hochspringen
+      xstep[index] := 0
+      is_jump[index] := 1
+      jump_animation[index] := 0
+    end
+  end
+end

@@ -1,0 +1,381 @@
+include ar:archer
+
+byte array @archer_to_left_0[16] = [
+%........,
+%.1111...,
+%111111..,
+%.1..11..,
+%.1...1..,
+%1.11....,
+%1111.1..,
+%.11.....,
+%....1...,
+%.1.111..,
+%........,
+%1..11..1,
+%.1.11.1.,
+%........,
+%...11...,
+%..111...,
+]
+
+byte array @archer_to_left_1[16] = [
+%.1111...,
+%111111..,
+%.1..11..,
+%.1...1..,
+%1.11....,
+%1111.1..,
+%.11.....,
+%......1.,
+%1....111,
+%1.11.11.,
+%..11....,
+%....1...,
+%.1..11.1,
+%.11..1.1,
+%111....1,
+%........,
+]
+
+byte array @archer_to_left_2[16] = [
+%.1111...,
+%111111..,
+%.1..11..,
+%.1...1..,
+%1.11....,
+%1111.1..,
+%.11.....,
+%.....11.,
+%1.1.1...,
+%1.....11,
+%......11,
+%1...1...,
+%11.1.111,
+%111..111,
+%.1.....1,
+%........,
+]
+
+// HINT: Will read indirect by getEnemyToLeft() MUST NOT SPLIT
+byte array @archer_to_left[257] = [
+60,60,60, // @archer_to_left_0,
+61,61,61, // @archer_to_left_1,
+62,62,62, // @archer_to_left_0,
+63,63,63, // @archer_to_left_2,
+ANIM_END,
+
+// Das Spannen des Bogens geschied durch Auswahl von 13 fuer die ARCHER Animation
+68,68,68,68,68,68,68,68,
+ANIM_END
+]
+
+// To rotate a line in emacs
+// (fset 'rotate-line
+//   [right ?\C-  right right right right ?\C-w right right right right ?\C-y home right ?\C-  right right ?\C-w right right ?\C-y ?\C-  right right ?\C-w right right ?\C-y home right right ?\C-t right right left ?\C-t right ?\C-t right ?\C-t home down])
+
+byte array @archer_to_right_0[16] = [
+%........,
+%...1111.,
+%..111111,
+%..11..1.,
+%..1...1.,
+%....11.1,
+%..1.1111,
+%.....11.,
+%...1....,
+%..111.1.,
+%........,
+%1..11..1,
+%.1.11.1.,
+%........,
+%...11...,
+%...111..,
+]
+
+byte array @archer_to_right_1[16] = [
+%...1111.,
+%..111111,
+%..11..1.,
+%..1...1.,
+%....11.1,
+%..1.1111,
+%.....11.,
+%.1......,
+%111....1,
+%.11.11.1,
+%....11..,
+%...1....,
+%1.11..1.,
+%1.1..11.,
+%1....111,
+%........,
+]
+
+byte array @archer_to_right_2[16] = [
+%...1111.,
+%..111111,
+%..11..1.,
+%..1...1.,
+%....11.1,
+%..1.1111,
+%.....11.,
+%.11.....,
+%...1.1.1,
+%11.....1,
+%11......,
+%...1...1,
+%111.1.11,
+%111..111,
+%1.....1.,
+%........,
+]
+
+// HINT: Will read indirect by getEnemyToRight() MUST NOT SPLIT
+byte array @archer_to_right[257] = [
+64,64,64, // @archer_to_right_0,
+65,65,65, // @archer_to_right_1,
+66,66,66, // @archer_to_right_0,
+67,67,67, // @archer_to_right_2,
+ANIM_END,
+
+// Das Spannen des Bogens geschied durch Auswahl von 13 fuer die ARCHER Animation
+69,69,69,69,69,69,69,69,
+ANIM_END
+]
+
+// 68
+byte array @archer_fire_to_left_0[16] = [
+%...1111.,
+%..111111,
+%...1..11,
+%...1...1,
+%.11.11..,
+%.1.111.1,
+%1..11...,
+%111..1.1,
+%1111.1.1,
+%1.......,
+%.1..1...,
+%.11..1..,
+%..11.111,
+%..111.11,
+%.111...1,
+%........
+]
+
+// 70
+byte array @archer_arrow_to_left_0[16] = [
+0,0,0,0,0,0,0,
+%.1..1.1.,
+%1111.1.1,
+%.1..1.1.,
+0,0,0,0,0,0
+]
+
+
+// 69
+byte array @archer_fire_to_right_0[16] = [
+%.1111...,
+%111111..,
+%11..1...,
+%1...1...,
+%..11.11.,
+%1.111.1.,
+%...11..1,
+%1.1..111,
+%1.1.1111,
+%.......1,
+%...1..1.,
+%..1..11.,
+%111.11..,
+%11.111..,
+%1...111.,
+%........
+]
+
+// 71
+byte array @archer_arrow_to_right_0[16] = [
+0,0,0,0,0,0,0,
+%.1.1..1.,
+%1.1.1111,
+%.1.1..1.,
+0,0,0,0,0,0
+]
+
+byte ntsc_color_add = @ntsc_color_add
+
+// xy position of enemies
+byte array xpos[MAX_ENEMIES] = @enemy_xpos
+byte array ypos[MAX_ENEMIES] = @enemy_ypos
+
+// xy movement of enemies
+byte array xstep[MAX_ENEMIES] = @enemy_xstep
+
+// The number of animation we currently show
+byte array anim_number[MAX_ENEMIES] = @enemy_anim_number
+
+byte array arrow_in_move[MAX_SPRITES] = @arrow_in_move
+
+// Global and in zero Page!
+byte enemy_type = @enemy_type
+byte index = @enemy_index
+byte enemy_to_draw = @enemy_to_draw
+
+byte i2
+
+byte array sprite_x[MAX_SPRITES] = @sprite_x
+byte array sprite_y[MAX_SPRITES] = @sprite_y
+byte array sprite_shape[MAX_SPRITES] = @sprite_shape
+byte array sprite_color[MAX_SPRITES] = @sprite_color
+
+byte array enemy_direction[MAX_ENEMIES] = @enemy_direction
+
+// Type (Skeleton, Archer, Dark Knight, Vampire...)
+byte array type[MAX_ENEMIES] = @enemy_types
+
+byte array hold_count[MAX_ENEMIES] = @enemy_user_data
+
+procedure @init_archer()
+begin
+  for index:=0 to MAX_SPRITES-1 do
+  begin
+    if type[index] == IDX_ARCHER then
+    begin
+      hold_count[index] := 150     // 3s soll der Bogenschuetze nicht schiessen
+    end
+  end
+end
+
+// bewegt den Pfeil
+procedure @move_arrow(index)
+begin
+  if arrow_in_move[index] == 0 then return 0
+
+  arrow_in_move[index] := arrow_in_move[index] - 1
+
+  i2 := index + 2
+  if arrow_in_move[index] == 0 then
+  begin
+    // kein Arrow mehr
+    sprite_x[i2] := 0
+  end
+  else
+  begin
+    if enemy_direction[index] == DIRECTION_STAY_LOOK_LEFT then
+    begin
+      sprite_shape[i2] := 70
+    end
+    else
+    begin
+      sprite_shape[i2] := 71
+    end
+    xpos[index] := xpos[index] + xstep[index]
+
+    sprite_color[i2] := COLOR_ARROW + ntsc_color_add
+    sprite_x[i2] := xpos[index] + xoffset
+    sprite_y[i2] := ypos[index]
+  end
+end
+
+// index und arrow_index wird einfach verwendet
+byte arrow_index = @arrow_index
+
+procedure @init_arrow()
+begin
+  anim_number[index] := 13 // ARCHER umstellen auf Bogenschiessen
+  arrow_index := index + 1 // Der Pfeil liegt grundsaetzlich hinter dem ARCHER
+  ypos[arrow_index] := ypos[index]
+  xpos[arrow_index] := xpos[index]
+  xstep[index] := 0
+  arrow_in_move[arrow_index] := arrow_in_move[arrow_index] + 50
+  @audio_play_arrow()
+end
+
+byte difference
+
+byte dude_xpos = @dude_xpos
+byte dude_ypos = @dude_ypos
+
+procedure @archer_prepare_target()
+begin
+  if hold_count[index] != 0 then
+  begin
+    hold_count[index] := hold_count[index] - 1
+    return 0
+  end
+
+// Den Arrow IMMER direkt hinter dem ARCHER angelegt (index+1)
+  arrow_index := index + 1
+  if arrow_in_move[arrow_index] == 0 then
+  begin
+    // der Pfeil bewegt sich gerade nicht
+    if ypos[index] == dude_ypos then
+    begin
+      // Der Dude steht auf Hoehe des Archers
+      // 48+16=64   208-8-16
+      difference := xpos[index] - dude_xpos
+      if difference < 127 then // Archer stays right, dude left
+      begin
+        if enemy_direction[index] == DIRECTION_STAY_LOOK_LEFT then
+        begin
+          // Archer looks left, Dude stays left, shoot
+          @init_arrow()
+
+          xstep[arrow_index] := 255
+          // enemy_in_shot_position := 1 // enemy should not move for a shot
+          arrow_in_move[arrow_index] := xpos[index] - 16  // festlegen wie weit wir schiessen
+          enemy_direction[arrow_index] := DIRECTION_STAY_LOOK_LEFT
+        end
+      end
+      else
+      begin
+        if enemy_direction[index] == DIRECTION_STAY_LOOK_RIGHT then
+        begin
+          // Archer looks right, Dude stays right, shoot
+          @init_arrow()
+
+          xstep[arrow_index] := 1
+          arrow_in_move[arrow_index] := 136 - xpos[index]  // festlegen wie weit wir schiessen
+          enemy_direction[arrow_index] := DIRECTION_STAY_LOOK_RIGHT
+        end
+      end
+    end
+  end
+end
+
+byte anim_index
+
+procedure @archer_fires_arrow()
+begin
+  // This will occur if we do not step and are an Archer
+  // if arrow is in move, anim number h
+  arrow_index := index + 1
+  if arrow_in_move[arrow_index] != 0 then
+  begin
+    enemy_direction[index] := enemy_direction[arrow_index]
+    if enemy_direction[index] == DIRECTION_STAY_LOOK_RIGHT then
+    begin
+      anim_index := @getEnemyToRight(enemy_type, anim_number[index])
+    end
+    else
+    begin
+      anim_index := @getEnemyToLeft(enemy_type, anim_number[index])
+    end
+
+    if anim_index != ANIM_END then
+    begin
+      enemy_to_draw := anim_index
+    end
+    else
+    begin
+      // wir setzen den Archer wieder in Bewegung
+      anim_number[index] := 0
+      if enemy_direction[index] == DIRECTION_STAY_LOOK_RIGHT then
+        xstep[index] := 1
+      else
+        xstep[index] := 255
+    end
+
+  end
+end

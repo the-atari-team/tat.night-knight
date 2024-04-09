@@ -1,0 +1,139 @@
+include ALL:SPRITES
+
+// This is the all-sprites array.
+// So we are able to say which number we would like to draw in @show_sprites()
+//
+// This word array MUST be in split form (<257 Values)
+
+word array @all_sprite_data_table[255] = [
+  @FORM0, @FORM1, @FORM2, @FORM3, @FORM4, @FORM5, @FORM6, @FORM7, @FORMEMPTY,
+  0,
+
+  // 10
+  @DUDE_P1_GO_LEFT_0,
+  @DUDE_P2_GO_LEFT_0,
+  @DUDE_P1_GO_LEFT_1,
+  @DUDE_P2_GO_LEFT_1,
+  @DUDE_P1_GO_LEFT_0,
+  @DUDE_P2_GO_LEFT_0,
+  @DUDE_P1_GO_LEFT_2,
+  @DUDE_P2_GO_LEFT_2,
+  @DUDE_P1_JUMP_LEFT_0,
+  @DUDE_P2_JUMP_LEFT_0,
+
+  // 20
+  @DUDE_P1_GO_RIGHT_0,
+  @DUDE_P2_GO_RIGHT_0,
+  @DUDE_P1_GO_RIGHT_1,
+  @DUDE_P2_GO_RIGHT_1,
+  @DUDE_P1_GO_RIGHT_0,
+  @DUDE_P2_GO_RIGHT_0,
+  @DUDE_P1_GO_RIGHT_2,
+  @DUDE_P2_GO_RIGHT_2,
+  @DUDE_P1_JUMP_RIGHT_0,
+  @DUDE_P2_JUMP_RIGHT_0,
+
+  // 30 dead dude
+  @dude_p1_dead_left,
+  @dude_p1_dead_right,
+
+  0,0,0,0,0,0,
+
+  // 38 these are used before game start when Text is shown in the middle of the Screen.
+  // Text is in High Res (Graphics 0)
+  // So we fake here a little bit, looks nicer
+  // cost 256 Bytes!
+  @wall_left, @wall_left_2,
+
+//  40 skeleton
+  @SKL_TO_LEFT_0, @SKL_TO_LEFT_1, @SKL_TO_LEFT_0, @SKL_TO_LEFT_2,
+  @SKL_TO_RIGHT_0, @SKL_TO_RIGHT_1, @SKL_TO_RIGHT_0, @SKL_TO_RIGHT_2,
+
+  @SKELETON_DEAD_TO_LEFT,
+  0,
+
+//  50
+  @KNIGHT_TO_LEFT_0,
+  @KNIGHT_TO_LEFT_1,
+  @KNIGHT_TO_LEFT_0,
+  @KNIGHT_TO_LEFT_2,
+  @KNIGHT_TO_RIGHT_0,
+  @KNIGHT_TO_RIGHT_1,
+  @KNIGHT_TO_RIGHT_0,
+  @KNIGHT_TO_RIGHT_2,
+  0,0,
+
+//  60
+  @ARCHER_TO_LEFT_0, @ARCHER_TO_LEFT_1, @ARCHER_TO_LEFT_0, @ARCHER_TO_LEFT_2,
+  @ARCHER_TO_RIGHT_0, @ARCHER_TO_RIGHT_1, @ARCHER_TO_RIGHT_0, @ARCHER_TO_RIGHT_2,
+  @ARCHER_FIRE_TO_LEFT_0,
+  @ARCHER_FIRE_TO_RIGHT_0,
+
+//  70
+  @ARCHER_ARROW_TO_LEFT_0,
+  @ARCHER_ARROW_TO_RIGHT_0,
+  0,0,0,0,0,0,0,0,
+
+//  80
+  @DRACU_TO_LEFT_0,
+  @DRACU_TO_LEFT_1,
+  @DRACU_TO_LEFT_0,
+  @DRACU_TO_LEFT_2,
+  @DRACU_TO_RIGHT_0,
+  @DRACU_TO_RIGHT_1,
+  @DRACU_TO_RIGHT_0,
+  @DRACU_TO_RIGHT_2,
+  0,0,
+  // 90 flying dracu (BAT)
+  @BAT_FLY_0,
+  @BAT_FLY_1,
+  @BAT_FLY_0,
+  @BAT_FLY_2,
+  0,0,0,0,0,0,
+
+//  100
+  @WERWOLF_TO_LEFT_0,
+  @WERWOLF_TO_LEFT_1,
+  @WERWOLF_TO_LEFT_0,
+  @WERWOLF_TO_LEFT_2,
+  @WERWOLF_TO_RIGHT_0,
+  @WERWOLF_TO_RIGHT_1,
+  @WERWOLF_TO_RIGHT_0,
+  @WERWOLF_TO_RIGHT_2,
+  0,0,
+
+//  110
+  @WIZARD_TO_LEFT_0,
+  @WIZARD_TO_LEFT_1,
+  @WIZARD_TO_LEFT_0,
+  @WIZARD_TO_LEFT_2,
+  @WIZARD_TO_RIGHT_0,
+  @WIZARD_TO_RIGHT_1,
+  @WIZARD_TO_RIGHT_0,
+  @WIZARD_TO_RIGHT_2,
+  @WIZARD_TO_LEFT_CONJURE,  // 118
+  @WIZARD_TO_RIGHT_CONJURE, // 119
+
+  // 120
+  @ghost_to_left_0,
+  @ghost_to_left_1,
+
+  @ghost_to_right_0,
+  @ghost_to_right_1,
+  0,0,0,0,0,0,
+
+  // 130
+  @CAT_TO_LEFT_0,
+  @CAT_TO_LEFT_1,
+  @CAT_TO_LEFT_0,
+  @CAT_TO_LEFT_2,
+
+  @CAT_TO_RIGHT_0,
+  @CAT_TO_RIGHT_1,
+  @CAT_TO_RIGHT_0,
+  @CAT_TO_RIGHT_2,
+  0,0,
+
+//  // 140
+//  @cursor,
+]

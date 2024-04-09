@@ -1,0 +1,328 @@
+include wi:wizard
+
+byte array @wizard_to_left_0[16] = [
+%.......1,
+%..111111,
+%1111.111,
+%111.111.,
+%11111...,
+%....1...,
+%1.1..1..,
+%.....1..,
+%1...111.,
+%.1111...,
+%........,
+%..1.11..,
+%....11..,
+%........,
+%...11...,
+%..111...,
+]
+
+byte array @wizard_to_left_1[16] = [
+%..1111..,
+%11111.11,
+%1111.1..,
+%11111...,
+%....1...,
+%1.1..1..,
+%.....1..,
+%1...111.,
+%........,
+%.11.111.,
+%.11.11..,
+%........,
+%.1....11,
+%.11.1111,
+%111....1,
+%........,
+]
+
+byte array @wizard_to_left_2[16] = [
+%..1111..,
+%11111.11,
+%1111.1..,
+%11111...,
+%....1...,
+%1.1..1..,
+%.....1..,
+%....111.,
+%1.11....,
+%1.....11,
+%...1..11,
+%1.1.....,
+%111...11,
+%111.1111,
+%.1.....1,
+%........,
+]
+
+byte array @wizard_to_left[12] = [
+110,110,110, // @wizard_to_left_0,
+111,111,111, // @wizard_to_left_1,
+112,112,112, // @wizard_to_left_0,
+113,113,113, // @wizard_to_left_2,
+ANIM_END,
+118,118,118,118,118,118,118,118,
+ANIM_END
+]
+
+// To rotate a line in emacs
+// (fset 'rotate-line
+//  [right ?\C-  right right right right ?\C-w right right right right ?\C-y home right ?\C-  right right ?\C-w right right ?\C-y ?\C-  right right ?\C-w right right ?\C-y home right right ?\C-t right right left ?\C-t right ?\C-t right ?\C-t home down])
+
+byte array @wizard_to_right_0[16] = [
+%1.......,
+%111111..,
+%111.1111,
+%.111.111,
+%...11111,
+%...1....,
+%..1..1.1,
+%..1.....,
+%.111...1,
+%...1111.,
+%........,
+%..11.1..,
+%..11....,
+%........,
+%...11...,
+%...111..,
+]
+
+byte array @wizard_to_right_1[16] = [
+%..1111..,
+%11.11111,
+%..1.1111,
+%...11111,
+%...1....,
+%..1..1.1,
+%..1.....,
+%.111...1,
+%........,
+%.111.11.,
+%..11.11.,
+%........,
+%11....1.,
+%1111.11.,
+%1....111,
+%........,
+]
+
+byte array @wizard_to_right_2[16] = [
+%..1111..,
+%11.11111,
+%..1.1111,
+%...11111,
+%...1....,
+%..1..1.1,
+%..1.....,
+%.111....,
+%....11.1,
+%11.....1,
+%11..1...,
+%.....1.1,
+%11...111,
+%1111.111,
+%1.....1.,
+%........,
+]
+
+byte array @wizard_to_right[12] = [
+114,114,114, // @wizard_to_right_0,
+115,115,115, // @wizard_to_right_1,
+116,116,116, // @wizard_to_right_0,
+117,117,117, // @wizard_to_right_2,
+ANIM_END,
+119,119,119,119,119,119,119,119,
+ANIM_END
+]
+
+byte array @wizard_to_left_conjure[16] = [
+%........,
+%...1111.,
+%.11111.1,
+%.1111.1.,
+%.11111..,
+%.....1..,
+%.1.1..1.,
+%......1.,
+%1...11..,
+%.1......,
+%..11..11,
+%..11..11,
+%....1...,
+%.1.1.1.1,
+%.111.111,
+%..1...1.,
+]
+
+byte array @wizard_to_right_conjure[16] = [
+%........,
+%.1111...,
+%1.11111.,
+%.1.1111.,
+%..11111.,
+%..1.....,
+%.1..1.1.,
+%.1......,
+%..11...1,
+%......1.,
+%11..11..,
+%11..11..,
+%...1....,
+%1.1.1.1.,
+%111.111.,
+%.1...1..,
+]
+
+byte array @wizard_blowAway_Floor_Backwarts[1] = [
+        8, // @formEmpty,
+        7,7,6,6,5,5,4,4,3,3,2,2,1,1,0,0
+]
+
+byte RANDOM	= $D20A
+
+// xy position of enemies
+byte array xpos[MAX_ENEMIES] = @enemy_xpos
+byte array ypos[MAX_ENEMIES] = @enemy_ypos
+
+// xy movement of enemies
+byte array xstep[MAX_ENEMIES] = @enemy_xstep
+byte array ystep[MAX_ENEMIES] = @enemy_ystep
+
+// Global and in zero Page!
+byte enemy_type = @enemy_type
+byte index = @enemy_index
+byte enemy_to_draw = @enemy_to_draw
+
+// The number of animation we currently show
+byte array anim_number[MAX_ENEMIES] = @enemy_anim_number
+
+byte array hold_count[MAX_ENEMIES] = @enemy_user_data
+byte array enemy_color[1] = @enemy_color
+
+word yposdiv8mul40ypos
+word array yposdiv8mul40[@split] = @yposdiv8mul40
+word screen = @screen
+word screen_pos
+
+byte array enemy_direction[MAX_ENEMIES] = @enemy_direction
+
+byte countOfEnteredFloor = @countOfEnteredFloor
+
+byte floor
+byte wizard_is_change_the_floor
+byte wizard_can_change_the_floor = @wizard_can_change_the_floor
+word screen_floor_to_change
+
+byte anim_index
+byte i2
+
+byte array sprite_x[MAX_SPRITES] = @sprite_x
+byte array sprite_y[MAX_SPRITES] = @sprite_y
+byte array sprite_shape[MAX_SPRITES] = @sprite_shape
+byte array sprite_color[MAX_SPRITES] = @sprite_color
+
+// we use the same array as from arrow, because it will never
+// use the same index
+byte array blow_in_animation[MAX_SPRITES] = @arrow_in_move
+
+procedure @blow_animation(index)
+begin
+  if blow_in_animation[index] == 0 then return 0
+
+  blow_in_animation[index] := blow_in_animation[index] - 1
+
+  i2 := index + 2
+  if blow_in_animation[index] == 0 then
+  begin
+    // blow animation zuende
+    sprite_x[i2] := 0
+  end
+  else
+  begin
+    sprite_shape[i2] := @wizard_blowAway_Floor_Backwarts[blow_in_animation[index]]
+
+    sprite_color[i2] := COLOR_BLOW
+    sprite_x[i2] := xpos[index] + xoffset
+    sprite_y[i2] := ypos[index]
+  end
+end
+
+procedure @init_wizard()
+begin
+  wizard_is_change_the_floor := 0
+  wizard_can_change_the_floor := 1 // will set to 0 if key is viewable
+end
+
+procedure @wizard_prepare()
+begin
+  if hold_count[index] == 0 then
+  begin
+    if wizard_can_change_the_floor == 1 then
+    begin
+      if wizard_is_change_the_floor == 0 and RANDOM < 192 then
+      begin
+        yposdiv8mul40ypos := yposdiv8mul40[ypos[index] - 24] + game_screen
+        screen := (xpos[index])/4 + yposdiv8mul40ypos // (ypos / 8)*40
+
+        screen_pos := screen + 121
+        floor := @mem[screen_pos]
+        if floor == FLOOR_YELLOW_1 then
+        begin
+          // Anzahl der betretenen Floors einen zuruecknehmen
+          // damit kann der Key nicht sichtbar werden
+          countOfEnteredFloor := countOfEnteredFloor - 1
+
+          screen_floor_to_change := screen_pos
+          anim_number[index] := 13
+          xstep[index] := 0
+          wizard_is_change_the_floor := 1
+          // remember position to reset
+          // play blow
+          hold_count[index] := 100
+
+          // Einen Blow anspielen
+          blow_in_animation[index+1] := 16
+          xpos[index+1] := xpos[index]
+          ypos[index+1] := ypos[index] + 8
+        end
+      end
+    end
+  end
+end
+
+procedure @wizard_change_floor()
+begin
+  if wizard_is_change_the_floor == 1 then
+  begin
+    if enemy_direction[index] == DIRECTION_STAY_LOOK_RIGHT then
+    begin
+      anim_index := @getEnemyToRight(enemy_type, anim_number[index])
+    end
+    else
+    begin
+      anim_index := @getEnemyToLeft(enemy_type, anim_number[index])
+    end
+
+    if anim_index != ANIM_END then
+    begin
+      enemy_to_draw := anim_index
+    end
+    else
+    begin
+      // Floor wieder von yellow befreien
+      @mem[screen_floor_to_change] := [FLOOR_1, FLOOR_2]
+
+      // wir setzen den Wizard wieder in Bewegung
+      wizard_is_change_the_floor := 0
+      anim_number[index] := 0
+
+      if enemy_direction[index] == DIRECTION_STAY_LOOK_RIGHT then
+        xstep[index] := 1
+      else
+        xstep[index] := 255
+    end
+  end
+end

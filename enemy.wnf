@@ -1,0 +1,712 @@
+include em:enemy
+
+byte RANDOM	= $D20A
+byte ntsc_color_add = @ntsc_color_add
+byte neg_direction = @REG
+//byte array @cursor[16] = [
+//%........,
+//%11....11,
+//%1......1,
+//%..1111..,
+//%........,
+//%........,
+//%........,
+//%........,
+//%........,
+//%........,
+//%........,
+//%........,
+//%..1111..,
+//%1......1,
+//%11....11,
+//%........,
+//]
+
+
+// byte vertical_list
+
+// Die erste Idee, es existieren 6 Linien die jeweils 24 Bytes hoch sind, in denen sich Sprites bewegen koennen.
+// Ein Sprite kann sich nach links/rechts bewegen und auch hoch/runter
+// in einer Linie koennen sich max 6 Sprites aufhalten, dabei werden die letzten beiden rotiert
+//
+// Der neue Algorithmus ist besser, es koennen beliebig viele Sprites in einer Zeile
+// dargestellt werden. Sind es mehr als 4, flackern die Sprites.
+// Es muss sich um nichts gekümmert werden!
+// einfach die X,Y Position, Farbe und die Shape Nummer setzen, fertig. Der Algorithmus macht den Rest.
+
+// einfacher Counter, wird bei jedem neuen Gegner um 1 hochgezaehlt
+byte waitForEnemyAnimation = @waitForEnemyAnimation
+
+// Type (Skeleton, Archer, Dark Knight, Vampire...)
+byte array type[MAX_ENEMIES] = @enemy_types
+
+// Global and in zero Page!
+byte enemy_type = @enemy_type
+byte index = @enemy_index
+
+byte array last_enemy_to_draw[MAX_ENEMIES]
+
+byte readonly array jump_ystep[1] = @jump_table // find in enemy-data.wnf
+
+// The number of animation we currently show
+byte array anim_number[MAX_ENEMIES] = @enemy_anim_number
+byte array anim_waitfor[MAX_ENEMIES] = @enemy_anim_waitfor
+
+// xy position of enemies
+byte array xpos[MAX_ENEMIES] = @enemy_xpos
+byte array ypos[MAX_ENEMIES] = @enemy_ypos
+
+// xy movement of enemies
+byte array xstep[MAX_ENEMIES] = @enemy_xstep
+byte array ystep[MAX_ENEMIES] = @enemy_ystep
+
+byte array enemy_direction[MAX_ENEMIES] = @enemy_direction
+byte direction
+
+// tables for jump
+byte array is_jump[MAX_ENEMIES] = @enemy_is_jump
+byte array is_jump_up[MAX_ENEMIES] = @enemy_is_jump_up
+byte array jump_animation[MAX_ENEMIES] = @enemy_jump_animation
+
+// tables for stepper break
+byte array waitforani[MAX_ENEMIES] = @enemy_waitforani
+byte waitforani_walk_init = @enemy_waitforani_walk_init
+
+byte array sprite_x[MAX_SPRITES] = @sprite_x
+byte array sprite_y[MAX_SPRITES] = @sprite_y
+byte array sprite_shape[MAX_SPRITES] = @sprite_shape
+byte array sprite_color[MAX_SPRITES] = @sprite_color
+
+byte flicker_enemies = @flicker_enemies
+
+byte array arrow_in_move[MAX_ENEMIES] = @arrow_in_move
+
+byte array hold_count[MAX_ENEMIES] = @enemy_user_data
+byte countOfEnemies
+
+procedure @pre_init_enemy()
+begin
+  waitForEnemyAnimation := 0
+  countOfEnemies := 0
+end
+
+// Initialise the enemies after playfield is loaded
+procedure @post_init_enemy()
+begin
+  for index:=0 to MAX_ENEMIES-1 do
+  begin
+    arrow_in_move[index] := 0
+    if type[index] == IDX_VAMPIRE then
+    begin
+      hold_count[index] := 100
+    end
+  end
+
+  @init_enemy_fly_ghost()
+  @init_enemy_fly_bat()
+  @init_wizard()
+  @init_werwolfs()
+  @init_vampire()
+  @init_archer()
+end
+
+byte i
+
+procedure @clear_all_enemy()
+begin
+  for i:=0 to MAX_ENEMIES-1 do
+  begin
+    sprite_x[i+2] := 0
+  end
+end
+
+byte enemy_type_
+byte xpos_
+byte ypos_
+
+byte ystep_
+
+byte type_value
+byte color_value
+byte array enemy_color[1] = @enemy_color
+
+procedure @add_enemy(xpos_, ypos_, enemy_type_)
+begin
+  if countOfEnemies >= MAX_ENEMIES-1 then return 0
+
+  // for debug
+  // if index >= 1 then return 0 // we want only one enemy
+
+  // if enemy_type_ != E_CAT then return 0 // we want only cat
+  // if enemy_type_ != E_GHOST then return 0
+  // if enemy_type_ != E_DARK_KNIGHT then return 0
+  // if enemy_type_ != E_VAMPIRE then return 0
+  // if index >= 2 then return 0
+
+  // @(fktptr_real_enemy)(index, xpos, ypos, vertical_list)
+
+  // if we are left of middle (80) set direction to right otherwise direction to left
+  if xpos_ < 80 then
+    direction := 1
+  else
+    direction := 255
+
+  xpos[countOfEnemies] := xpos_
+  ypos[countOfEnemies] := ypos_ // 40 64 88 112 136 160
+  xstep[countOfEnemies] := direction
+  ystep[countOfEnemies] := 0
+
+  anim_number[countOfEnemies] := 0
+  anim_waitfor[countOfEnemies] := 0
+
+  is_jump[countOfEnemies] := 0
+  is_jump_up[countOfEnemies] := 0
+  jump_animation[countOfEnemies] := 0
+
+  waitforani[countOfEnemies] := waitForEnemyAnimation
+  waitforani_walk_init := 2
+
+  // set type and color
+
+  if enemy_type_ == E_SKELETON then
+  begin
+    type_value := IDX_SKELETON
+    color_value := COLOR_SKELETON
+  end
+
+  else if enemy_type_ == E_ARCHER then
+  begin
+    type_value := IDX_ARCHER
+    color_value := COLOR_ARCHER + ntsc_color_add
+  end
+
+  else if enemy_type_ == E_DARK_KNIGHT then
+  begin
+    type_value := IDX_DARK_KNIGHT
+    color_value := COLOR_DARK_KNIGHT + ntsc_color_add
+  end
+
+  else if enemy_type_ == E_GHOST then
+  begin
+    type_value := IDX_GHOST
+    color_value := COLOR_GHOST
+  end
+
+  else if enemy_type_ == E_VAMPIRE then
+  begin
+    type_value := IDX_VAMPIRE
+    color_value := COLOR_VAMPIRE + ntsc_color_add
+  end
+
+  else if enemy_type_ == E_WIZARD then
+  begin
+    type_value := IDX_WIZARD
+    color_value := COLOR_WIZARD + ntsc_color_add
+  end
+
+  else if enemy_type_ == E_WERWOLF then
+  begin
+    type_value := IDX_WERWOLF
+    color_value := COLOR_WERWOLF + ntsc_color_add
+  end
+
+  else if enemy_type_ == E_CAT then
+  begin
+    type_value := IDX_CAT
+    color_value := COLOR_CAT + ntsc_color_add
+  end
+
+  type[countOfEnemies] := type_value
+  enemy_color[countOfEnemies] := color_value
+
+  countOfEnemies := countOfEnemies + 1
+
+  if enemy_type_ == E_ARCHER then
+  begin
+    type[countOfEnemies] := IDX_ARROW
+    enemy_color[countOfEnemies] := COLOR_ARROW + ntsc_color_add
+//    waitforani[countOfEnemies] := 0
+
+    // wir reservieren einen Sprite fuer den Arrow
+    countOfEnemies := countOfEnemies + 1
+  end
+  else if enemy_type_ == E_WIZARD then
+  begin
+    type[countOfEnemies] := IDX_BLOW
+    enemy_color[countOfEnemies] := COLOR_BLOW
+    waitforani[countOfEnemies] := 1
+
+    // wir reservieren einen Sprite fuer den Blow
+    countOfEnemies := countOfEnemies + 1
+  end
+
+  waitForEnemyAnimation := waitForEnemyAnimation + 1
+end
+
+//
+//
+//
+// OOO OO   OOOO  OO   OO  OOOO          OOOO  OOOOO   OOOO  OOO OO  OO  OO
+// OOOOOOO OO  OO OO   OO OO  OO OOOOOO OO  OO OO  OO OO  OO OOOOOOO OO  OO
+// OO O OO OO  OO OO   OO OOOOOO        OOOOOO OO  OO OOOOOO OO O OO OO  OO
+// OO O OO OO  OO  OO OO  OO            OO     OO  OO OO     OO O OO  OOOOO
+// OO O OO  OOOO    OOO    OOOO          OOOO  OO  OO  OOOO  OO O OO     OO
+//                                                                   OOOOO
+
+
+byte i2
+
+byte enemy_to_draw = @enemy_to_draw
+
+word yposdiv8mul40ypos
+word array yposdiv8mul40[@split] = @yposdiv8mul40
+word screen = @screen
+byte floor
+byte wall
+
+int8 xpos_floor_add
+int8 xpos_wall_add
+// int8 ypos_add
+
+byte topfloor
+
+function @isFloorToWalk(floor)
+begin
+  if floor == FLOOR_YELLOW_1 or floor == FLOOR_YELLOW_2 or floor == FLOOR_1 or floor == FLOOR_2 or floor == WALL_1 or floor == WALL_2 then
+  begin
+    return 1
+  end
+  return 0
+end
+
+// Really check only for the floor
+function @isFloorToJump(floor)
+begin
+  if floor == FLOOR_YELLOW_1 or floor == FLOOR_YELLOW_2 or floor == FLOOR_1 or floor == FLOOR_2 then
+  begin
+    return 1
+  end
+  return 0
+end
+
+//procedure xpos_correction()
+//begin
+//  if xstep[index] == 1 then
+//  begin
+//    // CAT walk right
+//    xpos[index] := xpos[index] - 0
+//  end
+//  else
+//  begin
+//    // CAT walk left
+//    xpos[index] := xpos[index] + 0
+//  end
+//end
+
+procedure animation_correction()
+begin
+  if enemy_type == IDX_VAMPIRE or enemy_type == IDX_BAT then
+  begin
+    enemy_color[index] := COLOR_VAMPIRE + ntsc_color_add
+    anim_number[index] := 0
+  end
+  else if enemy_type == IDX_CAT then
+  begin
+    if enemy_to_draw == ANIM_JUMP_UP then // was cat jump up
+    begin
+      ypos[index] := ypos[index] - 24
+      anim_number[index] := anim_number[index] + 1
+      // xpos_correction()
+    end
+    else if enemy_to_draw == ANIM_JUMP_DOWN then
+    begin
+      ypos[index] := ypos[index] + 24
+      anim_number[index] := anim_number[index] + 1
+      // xpos_correction()
+    end
+    else if enemy_to_draw == ANIM_END then
+    begin
+      enemy_color[index] := COLOR_CAT + ntsc_color_add
+      anim_number[index] := 0
+    end
+  end
+  else
+  begin
+    anim_number[index] := 0
+  end
+end
+
+byte is_walk
+byte dude_xpos = @dude_xpos
+byte dude_ypos = @dude_ypos
+
+word screen_pos
+//word old_screen_pos
+//byte old_screen_set
+//byte old_screen_value
+
+// Bewegt den Enemy mit Nummer (index) nach links, rechts oder oben (jump up) oder runter
+procedure move_enemy()
+begin
+
+  enemy_type := type[index]
+
+  if enemy_type == IDX_ARROW then
+  begin
+    @move_arrow(index)
+    return 0
+  end
+  else if enemy_type == IDX_BLOW then
+  begin
+    @blow_animation(index)
+    return 0
+  end
+
+  is_walk := 0
+  enemy_to_draw := last_enemy_to_draw[index]
+
+  if is_jump[index] == 0 then
+  begin
+    // ----- Enemy springt nicht, also bewegt er sich --------
+    // stotterbremse
+    if waitforani[index] != 0 then
+    begin
+      waitforani[index] := waitforani[index] - 1
+
+      if flicker_enemies == 0 or flicker_enemies == 1 then
+      begin
+        if waitforani[index] > 2 then
+        begin
+          color_value := (enemy_color[index] & $0f) ! (random & $f0)
+          sprite_color[index + 2] := color_value
+        end
+      end
+      return 0
+    end
+    waitforani[index] := waitforani_walk_init
+
+    if xstep[index] == 1 then  // move to the right
+    begin
+      // ----- walk to the right ----------
+      enemy_to_draw := @getEnemyToRight(enemy_type, anim_number[index])
+      if enemy_to_draw >= 253 then
+      begin
+        animation_correction()
+        enemy_to_draw := @getEnemyToRight(enemy_type, anim_number[index])
+      end
+      xpos_floor_add := 2
+      xpos_wall_add := 2
+      if enemy_type == IDX_DARK_KNIGHT or enemy_type == IDX_WERWOLF then
+      begin
+        // Korrektur der Floor kontrolle, damit wir nicht in eine Mauer fallen
+        if ypos[index] < 192 then xpos_floor_add := 1
+      end
+      else if enemy_type == IDX_CAT then
+      begin
+        @cat_walk_check_floor_for_move()
+      end
+      enemy_direction[index] := DIRECTION_STAY_LOOK_RIGHT
+      is_walk := 1
+    end
+    else if xstep[index] == 255 then // move to the left
+    begin
+      // ----- enemy walk to the left ----------
+      enemy_to_draw := @getEnemyToLeft(enemy_type, anim_number[index])
+      if enemy_to_draw >= 253 then
+      begin
+        animation_correction()
+        enemy_to_draw := @getEnemyToLeft(enemy_type, anim_number[index])
+      end
+      xpos_floor_add := 0
+      xpos_wall_add := 0
+      if enemy_type == IDX_DARK_KNIGHT or enemy_type == IDX_WERWOLF then
+      begin
+        // korrektur der Floor kontrolle, damit wir nicht in eine Mauer fallen
+        if ypos[index] < 192 then xpos_floor_add := 1
+      end
+      else if enemy_type == IDX_CAT then
+      begin
+        @cat_walk_check_floor_for_move()
+      end
+
+      enemy_direction[index] := DIRECTION_STAY_LOOK_LEFT
+      is_walk := 255 // -1
+    end
+    else
+    begin
+      // enemy do not move
+      if enemy_type == IDX_ARCHER then
+      begin
+        @archer_fires_arrow()
+      end
+      else if enemy_type == IDX_WIZARD then
+      begin
+        @wizard_change_floor()
+      end
+    end
+
+    if enemy_type == IDX_ARCHER then
+    begin
+      @archer_prepare_target()
+    end
+    else if enemy_type == IDX_WIZARD then
+    begin
+      @wizard_prepare()
+    end
+
+    xpos[index] := xpos[index] + xstep[index]
+
+  end
+  else
+  begin
+    // ----- Enemy ist im Sprung ---------------------------
+    // stotterbremse
+    if waitforani[index] != 0 then
+    begin
+      waitforani[index] := waitforani[index] - 1
+    end
+    else
+    begin
+      waitforani[index] := 1 // wir wollen etwas schneller fallen
+
+      ystep_ := jump_ystep[jump_animation[index]]
+
+      ypos[index] := ypos[index] + ystep_
+      jump_animation[index] := jump_animation[index] + 1
+
+      if enemy_direction[index] == DIRECTION_STAY_LOOK_RIGHT then
+      begin
+        enemy_to_draw := @getEnemyToRight(enemy_type, 3)
+      end
+      else
+      begin
+        enemy_to_draw := @getEnemyToLeft(enemy_type, 3)
+      end
+    end
+  end
+
+  screen := 0
+  wall := 0
+  // check the wall
+  if is_walk != 0 then  //  and ypos_ & $07 == 0
+  begin
+    if enemy_type == IDX_GHOST then
+    begin
+      @enemy_fly_ghost()
+      // Hack
+      wall := 255
+    end
+    else if enemy_type == IDX_BAT then
+    begin
+      @enemy_fly_bat()
+      // Hack
+      wall := 255
+    end
+    else
+    begin
+      if xpos[index] & $03 == 0 then
+      begin
+        // we walk, check the wall
+        yposdiv8mul40ypos := yposdiv8mul40[ypos[index]-24] + game_screen
+        screen := (xpos[index])/4 + yposdiv8mul40ypos // (ypos / 8)*40
+
+        wall := @mem[ screen + 80 + xpos_wall_add ]
+
+        // DEBUG: mark where we are
+        // @mem[screen + 80 + xpos_wall_add] := 1
+
+        if wall == WALL_1 or wall == WALL_2 then
+        begin
+          // Gegen Mauer gelaufen! --> Richtungswechsel
+          // xstep[index] := @neg(xstep[index])
+          neg_direction := xstep[index]
+          xstep[index] := neg:neg_direction
+        end
+      end
+    end
+  end
+
+
+// for Debug!
+//  if old_screen_set == 1 then
+//  begin
+//    old_screen_set := 0
+//    @mem[old_screen_pos] := old_screen_value
+//  end
+
+  if wall == 0 then
+  begin
+
+    if ypos[index] & $07 == 0 then // xpos_ & $03 == 0 and
+    begin
+      //if screen == 0 then
+      //begin
+      yposdiv8mul40ypos := yposdiv8mul40[ypos[index] - 24] + game_screen
+      screen := (xpos[index])/4 + yposdiv8mul40ypos // (ypos / 8)*40
+      //end
+
+      screen_pos := screen + 121
+      floor := @mem[screen_pos]
+
+//      if xstep[index] == 255 then
+//      begin
+//        screen_pos := screen + 121
+//        floor := @mem[screen_pos]
+//// for Debug!
+////        old_screen_value := floor
+////        old_screen_set := 1
+////        @mem[old_screen_pos] := 1
+//      end
+//      else
+//      begin
+//        screen_pos := screen + 121
+//        floor := @mem[screen_pos]
+//
+//// for Debug!
+////        old_screen_value := floor
+////        old_screen_set := 1
+////        @mem[old_screen_pos] := 1
+//      end
+      // DEBUG: Show where we check the position
+      // @mem[screen] := 1
+//      if enemy_type == IDX_DARK_KNIGHT and index==2 then
+//      begin
+//        if ypos[index] >= $80 then
+//        begin
+//          @mem[screen + 121] := 1
+//        end
+//      end
+      if enemy_type == IDX_VAMPIRE then
+      begin
+        @vampire_could_convert_to_bat()
+      end
+
+      // skeleton, archer, vampire, wizard, cat
+      // dark knight, werwolf
+      // ghost
+      if enemy_type == IDX_SKELETON or enemy_type == IDX_ARCHER or enemy_type == IDX_VAMPIRE or enemy_type == IDX_WIZARD then
+      begin
+        if @isFloorToWalk(floor) == 0 then
+        begin
+          // xstep[index] := @neg(xstep[index])
+          neg_direction := xstep[index]
+          xstep[index] := neg:neg_direction
+        end
+      end
+      else if enemy_type == IDX_DARK_KNIGHT or enemy_type == IDX_WERWOLF or enemy_type == IDX_CAT then
+      begin
+        if is_jump[index] == 0 then
+        begin
+          // -----  enemy is not in jump ----------
+
+          if @isFloorToWalk(floor) == 0 then
+          begin
+            // es gibt keinen Floor unter uns, also runterfallen
+            // sind wir aber auf der untersten Ebene, Richtungswechsel
+            if ypos[index] >= 192 or floor == BODEN_MESSER_1HI or floor == BODEN_MESSER_2HI then
+            begin
+              // wir wuerden in die Grube fallen, also Richtungswechsel
+              // xstep[index] := @neg(xstep[index])
+              neg_direction := xstep[index]
+              xstep[index] := neg:neg_direction
+            end
+            else
+            begin
+              // runterfallen
+              if enemy_type == IDX_CAT and hold_count[index] != 0 then
+              begin
+                // Sonderfall, solange hold_count != 0, faellt die Katze nicht runter, so kann sie weiter hoch klettern
+                // xstep[index] := @neg(xstep[index])
+                neg_direction := xstep[index]
+                xstep[index] := neg:neg_direction
+              end
+              else
+              begin
+                xstep[index] := 0
+                is_jump[index] := 1
+                jump_animation[index] := 10
+              end
+            end
+          end
+
+          if is_jump[index] == 0 then
+          begin
+            if enemy_type == IDX_DARK_KNIGHT then
+            begin
+              @dark_knight_maybe_jump_up()
+            end
+            else if enemy_type == IDX_WERWOLF then
+            begin
+              @werwolf_maybe_jump_up()
+            end
+          end
+        end
+        else
+        begin
+          // ----- enemy is in jump ----------
+          if jump_animation[index] > 10 then
+          begin
+            // wir fallen gerade runter, floor?
+            if @isFloorToWalk(floor) == 1 then
+            begin
+              // wir sind auf einen Floor gefallen
+              // runterfallen stoppen, alte Richtung wieder einschlagen, weiter laufen
+              if enemy_direction[index] == DIRECTION_STAY_LOOK_RIGHT then
+                xstep[index] := 1
+              else
+                xstep[index] := 255 // -1
+
+              is_jump[index] := 0
+              jump_animation[index] := 0
+            end
+          end
+        end
+      end
+    end
+  end
+
+  if is_jump[index] == 0 then
+  begin
+    anim_number[index] := anim_number[index] + 1
+  end
+
+//
+//                 OO          OOOO                 OO    OO
+//                 OO         OO                          OO
+//  OOOO   OOOO  OOOOOO       OO     OOOOO  OOOOO  OOO  OOOOOO  OOOO
+// OO     OO  OO   OO          OOOO  OO  OO OO  OO  OO    OO   OO  OO
+//  OOOO  OOOOOO   OO             OO OO  OO OO      OO    OO   OOOOOO
+//     OO OO       OO             OO OOOOO  OO      OO    OO   OO
+//  OOOO   OOOO     OOO        OOOO  OO     OO     OOOO    OOO  OOOO
+//                                   OO
+
+  i2 := index + 2
+  sprite_shape[i2] := enemy_to_draw
+  sprite_color[i2] := enemy_color[index]
+  sprite_x[i2] := xpos[index] + xoffset
+  sprite_y[i2] := ypos[index]
+
+  if hold_count[index] != 0 then
+  begin
+    hold_count[index] := hold_count[index] - 1
+  end
+
+  // Wir muessen uns den letzten Stand merken
+  last_enemy_to_draw[index] := enemy_to_draw
+end
+
+procedure @move_enemies()
+begin
+  if countOfEnemies == 0 then return 0
+
+  for i:=0 to countOfEnemies - 1 do
+  begin
+    index := i
+    move_enemy()
+  end
+end
+
+function @getEnemies()
+begin
+  return countOfEnemies
+end

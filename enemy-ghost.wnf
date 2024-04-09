@@ -1,0 +1,397 @@
+include gst:ghost
+
+byte array @ghost_to_left_0[16] = [
+%..111...,
+%.11111..,
+%.1111...,
+%11111...,
+%.1.11...,
+%.1.11...,
+%111111..,
+%1111.1..,
+%....111.,
+%.1111111,
+%..11111.,
+%..1111..,
+%..11....,
+%........,
+%........,
+%........,
+]
+
+byte array @ghost_to_left_1[16] = [
+%........,
+%..11....,
+%.1111...,
+%.11111..,
+%11111...,
+%.1.11...,
+%.1.11...,
+%111111..,
+%1111.1..,
+%....1111,
+%.1111111,
+%..11111.,
+%..1111..,
+%...11...,
+%........,
+%........,
+]
+
+byte array @ghost_to_left[12] = [
+120,120,120, // @ghost_to_left_0,
+120,120,120, // @ghost_to_left_0,
+121,121,121, // @ghost_to_left_1,
+121,121,121, // @ghost_to_left_1,
+ANIM_END
+]
+
+// To rotate a line in emacs
+//(fset 'rotate-line
+//   [right ?\C-  right right right right ?\C-w right right right right ?\C-y home right ?\C-  right right ?\C-w right right ?\C-y ?\C-  right right ?\C-w right right ?\C-y home right right ?\C-t right right left ?\C-t right ?\C-t right ?\C-t home down])
+
+byte array @ghost_to_right_0[16] = [
+%...111..,
+%..11111.,
+%...1111.,
+%...11111,
+%...11.1.,
+%...11.1.,
+%..111111,
+%..1.1111,
+%.111....,
+%1111111.,
+%.11111..,
+%..1111..,
+%....11..,
+%........,
+%........,
+%........,
+]
+
+
+//......1111..
+//.....111111.
+//....1111111.
+//.......11111
+//......111.1.
+//......111.1.
+//.....1111111
+//....11.11111
+//..11111.....
+//11111111111.
+//.111111111..
+//...111111...
+//.....111....
+//............
+//............
+//
+
+
+byte array @ghost_to_right_1[16] = [
+%........,
+%....11..,
+%...1111.,
+%..11111.,
+%...11111,
+%...11.1.,
+%...11.1.,
+%..111111,
+%..1.1111,
+%1111....,
+%1111111.,
+%.11111..,
+%..1111..,
+%...11...,
+%........,
+%........,
+]
+
+//......1111..
+//.....111111.
+//.......1111.
+//.......11111
+//......111.1.
+//......111.1.
+//.....1111111
+//....11.11111
+//1111111.....
+//.1111111111.
+//..11111111..
+//.....11111..
+//.......11...
+//............
+//............
+
+byte array @ghost_to_right[12] = [
+122,122,122, // @ghost_to_right_0,
+122,122,122, // @ghost_to_right_0,
+123,123,123, // @ghost_to_right_1,
+123,123,123, // @ghost_to_right_1,
+ANIM_END
+]
+
+byte RANDOM	= $D20A
+
+const FLY_UP = 255
+const FLY_DOWN = 1
+const FLY_HORIZONTAL = 0
+
+byte array fly_count[MAX_SPRITES]
+byte array fly_direction[MAX_SPRITES]
+
+// xy position of enemies
+byte array xpos[MAX_ENEMIES] = @enemy_xpos
+byte array ypos[MAX_ENEMIES] = @enemy_ypos
+
+// xy movement of enemies
+byte array xstep[MAX_ENEMIES] = @enemy_xstep
+byte array ystep[MAX_ENEMIES] = @enemy_ystep
+
+// The number of animation we currently show
+byte array anim_number[MAX_ENEMIES] = @enemy_anim_number
+
+byte array hold_count[MAX_ENEMIES] = @enemy_user_data
+byte array enemy_color[1] = @enemy_color
+
+// Type (Skeleton, Archer, Dark Knight, Vampire...)
+byte array type[MAX_ENEMIES] = @enemy_types
+
+word yposdiv8mul40ypos
+word array yposdiv8mul40[@split] = @yposdiv8mul40
+
+byte enemy_type = @enemy_type
+byte index = @enemy_index
+
+byte direction
+word screen_pos
+word screen = @screen
+byte floor
+
+byte neg_direction = @REG
+
+byte topfloor
+byte bottomfloor
+
+byte array attackIndex[MAX_ENEMIES] = @attack_Index
+
+procedure @init_enemy_fly_ghost()
+begin
+  for index:=0 to MAX_SPRITES-1 do
+  begin
+    if type[index] == IDX_GHOST then
+    begin
+      fly_count[index] := 1     // slowdown for fly_index increment
+      fly_direction[index] := FLY_DOWN
+    end
+  end
+end
+
+byte wall
+byte background
+
+function @isWall(background)
+begin
+  if background == WALL_1 or background == WALL_2 then
+  begin
+    return 1
+  end
+  return 0
+end
+
+// Wir uebernehmen index und enemy_type
+procedure @enemy_fly_ghost()
+begin
+  // we fly
+
+  // horizontal control we change direction only at the left wall or at the right wall
+  if xstep[index] == 1 then
+  begin
+    // fly to the right
+
+    // xpos goes from 0 - 160 => right wall is at 160 - width (16) - width ghost (8) == 136
+    if xpos[index] > 136 then
+    begin
+
+      // xstep[index] := @neg(xstep[index])
+      neg_direction := xstep[index]
+      xstep[index] := neg:neg_direction
+    end
+  end
+  else
+  begin
+    // fly to the left
+
+    // xpos goes from 0 - 160 => left wall is at 0 + width (16)
+    if xpos[index] < 16 then
+    begin
+      // xstep[index] := @neg(xstep[index])
+      neg_direction := xstep[index]
+      xstep[index] := neg:neg_direction
+    end
+  end
+
+  fly_count[index] := fly_count[index] - 1
+
+  if fly_count[index] == 0 then
+  begin
+    // every 4 steps we control the up/down direction
+    fly_count[index] := 4
+
+    direction := fly_direction[index]
+
+    yposdiv8mul40ypos := yposdiv8mul40[ypos[index]-24] + game_screen
+    screen := (xpos[index])/4 + yposdiv8mul40ypos // (ypos / 8)*40
+
+    screen_pos := 0
+    wall := 0
+
+    if xstep[index] == 1 then
+    begin
+      screen_pos := screen + 82
+    end
+    else if xstep[index] == 255 then
+    begin
+      screen_pos := screen + 79
+    end
+
+    if screen_pos != 0 then
+    begin
+      background := @mem[screen_pos]
+      wall := @isWall(background)
+      if wall == 1 then
+      begin
+        direction := FLY_HORIZONTAL
+      end
+    end
+
+    if direction == FLY_UP then
+    begin
+      ystep[index] := 255 // fly up
+    end
+
+    else if direction == FLY_DOWN then
+    begin
+      ystep[index] := 1  // fly down
+    end
+
+    else if direction == FLY_HORIZONTAL then
+    begin
+      ystep[index] := 0  // fly horizontal
+    end
+
+    if direction == FLY_DOWN then
+    begin
+      // fly down
+      if ypos[index] > 192 then
+      begin
+        // wir drohen nach unten rauszulaufen, umdrehen
+        fly_direction[index] := FLY_UP
+      end
+    end
+    else if direction == FLY_UP then
+    begin
+      if ypos[index] < 61 then
+      begin
+        // over us the ceiling, fly down
+        fly_direction[index] := FLY_DOWN
+      end
+    end
+
+    if direction == FLY_DOWN then
+    begin
+      // check if there is a floor under us
+      screen_pos := screen + 121
+      floor := @mem[screen_pos]
+      bottomfloor := @isFloorToJump(floor)
+      if bottomfloor == 1 then
+      begin
+        // there is a floor under us
+        // check if there is a floor over us
+        floor := @mem[screen + 1]
+        topfloor := @isFloorToJump(floor)
+        if topfloor == 1 then
+        begin
+          // there is a floor over us
+          fly_direction[index] := FLY_HORIZONTAL
+          ystep[index] := 0
+        end
+        else
+        begin
+          // there is no floor over us, fly up
+          fly_direction[index] := FLY_UP
+        end
+      end
+    end
+    else if direction == FLY_UP then
+    begin
+      screen_pos := screen + 1
+      floor := @mem[screen_pos]
+      topfloor := @isFloorToJump(floor)
+      if topfloor == 1 then
+      begin
+        // there is a floor over us
+        fly_direction[index] := FLY_DOWN
+      end
+    end
+    else
+    begin
+      // fly horizontal
+      if ypos[index] & $07 != 0 then
+      begin
+        ypos[index] := ypos[index] - 1
+      end
+
+      if wall == 0 then
+      begin
+
+        // check in top and bottom still exist
+        // top away, fly up
+        // bottom away, fly down
+        // top and bottom away, check xpos. On the left, fly down else fly up
+
+        screen_pos := screen + 121
+        floor := @mem[screen_pos]
+        bottomFloor := @isFloorToJump(floor)
+
+        screen_pos := screen + 1
+        floor := @mem[screen_pos]
+        topfloor := @isFloorToJump(floor)
+
+        if bottomfloor == 1 then
+        begin
+          if topfloor == 0 then
+          begin
+            fly_direction[index] := FLY_UP
+          end
+          else
+          begin
+            // fly still horizontal
+          end
+        end
+        else
+        begin
+          // bottom floor is 0
+          if topfloor == 1 then
+          begin
+            fly_direction[index] := FLY_DOWN
+          end
+          else
+          begin
+            // both top and bottom are 0
+            if xpos[index] < 80 then
+            begin
+              fly_direction[index] := FLY_DOWN
+            end
+            else
+            begin
+              fly_direction[index] := FLY_UP
+            end
+          end
+        end
+      end
+    end
+  end
+
+  ypos[index] := ypos[index] + ystep[index]
+end
