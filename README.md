@@ -129,3 +129,15 @@ If everything above is installed, just call `make start` from the root of this r
 
 If you would like to debug the code, use the [**Altirra**](https://virtualdub.com/altirra.html) Emulator and start `make debug` on console. In the Makefile find in line 5 the ALTIRRA= expressions, set it to your installed Altirra version. Here you can see how to use it with Wine in a Linux environment.
 
+### Slim Sprites
+
+Tix has created slim sprites for Night Knight.
+
+To build this slim version, switch the branch:
+
+```
+make clean
+git checkout feature/slim-figures
+make start
+```
+
