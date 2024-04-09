@@ -1,0 +1,148 @@
+// Primitiver Audio Player
+//
+// Um mal die Groesse der Daten abzuschaetzen:
+// 489c - 4da2  HEXEN (1286 Bytes)
+// 4da3 - 5205  Noten tabellen (1122 Bytes)
+// 5206 - 5c3d  Music tabellen (Huellkurven, Shapes, Takte) (2615 Bytes)
+
+program plyaudio
+
+LOMEM=$4000,runad // DOS 2.5 Low Memory is set to $1c6c
+
+byte key
+
+const KEY_ESCAPE = 27
+byte @game_mode
+
+byte NOCLIK=@
+
+const @show_screen=0
+const @game_screen=0
+const @score_status_text=0
+
+byte lautstaerke
+byte music_loudness = @music_loudness
+byte intro_loudness = @intro_loudness
+// byte intro_loudness = @intro_loudness
+
+byte xpos
+
+begin
+  noclik := 1 // kein Tastaturklick
+
+  @music_init_interrupts()
+  @init_audio_play()
+
+  @printf("Simple Audio Player for Night Knight\n")
+  @printf("\n")
+
+  // @printf("last key:")
+
+  lautstaerke := 15
+  music_loudness := 15
+  intro_loudness := 15
+
+  @music_set_loudness(lautstaerke, %00001111)
+
+  key := 0
+  while key != KEY_ESCAPE do
+  begin
+
+    @printf("Choose sound\n")
+
+    key := @getchar()
+
+    @printf("   key: %d \n", key)
+    @printf("%c%c", 28, 28) // up up
+
+    if key == '1' then @audio_play_make_yellow()
+
+    else if key == '2' then @audio_play_dude_jump()
+    else if key == '3' then @audio_play_inc_score()
+    else if key == '4' then @audio_play_inc_score_end()
+    else if key == '5' then @audio_play_start_pling()
+    else if key == '6' then @audio_play_take_key()
+    else if key == '7' then @audio_play_key_occur()
+    else if key == '8' then @audio_play_gem_occur()
+    else if key == '9' then @audio_play_enter_open_door()
+    else if key == 'A' then @audio_play_dude_died()
+    else if key == 'C' then @audio_play_second_tic()
+
+    else if key == 'M' then
+    begin
+      @init_play_music()
+    end
+    else if key == 'N' then
+    begin
+      @init_play_start_game()
+    end
+    else if key == 'B' then
+    begin
+      @init_play_game_over()
+    end
+    else if key == 'V' then
+    begin
+      @init_play_stage_done()
+    end
+
+    else if key == 'X' then
+    begin
+      @init_play_end_theme()
+    end
+
+    else if key == 'L' then
+    begin
+      @printf("play ping left to right\n")
+      for xpos:=0 to 31 do
+      begin
+        @audio_play_make_yellow(xpos)
+        @sleep(20)
+      end
+    end
+
+    else if key == 'R' then
+    begin
+      @printf("play ping right to left\n")
+      for xpos:=30 downto 1 do
+      begin
+        @audio_play_make_yellow(xpos)
+        @sleep(20)
+      end
+    end
+
+    else if key == 'S' then
+    begin
+      @audio_play_stop()
+    end
+
+    if key == '-' and lautstaerke > 1 then
+    begin
+      lautstaerke := lautstaerke - 1
+      @music_set_loudness(lautstaerke, %00001110)
+    end
+
+    if key == '+' and lautstaerke < 15 then
+    begin
+      lautstaerke := lautstaerke + 1
+      @music_set_loudness(lautstaerke, %00001110)
+    end
+
+  end
+
+  @music_stop_timer()
+  @music_restore_Interrupts()
+
+  @exit(0)
+end
+
+include "SCREEN_OUTPUT.INC"
+include "PRINTF.INC"
+include "GETCHAR.INC"
+include "BASIC.INC"
+include "../AUDIOPLY.INC"
+
+include "STEREO-HEXEN.INC"
+include "test-stereo-pokey.INC"
+include "NOTEN.INC"
+include "night-knight-audio.INC"
+

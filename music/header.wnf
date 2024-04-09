@@ -1,0 +1,14 @@
+
+const GAME_MODE=@game_mode
+
+const MODE_INTRO=1
+
+const AUDCTL_9BIT_POLY=%10000000
+const AUDCTL_12_1_79M= %01000000
+const AUDCTL_34_1_79M= %00100000
+const AUDCTL_12_16BIT= %00010000
+const AUDCTL_34_16BIT= %00001000
+
+const AUDCTL_64K=      %00000000
+const AUDCTL_15K=      %00000001
+const AUDCTL_0=         0
