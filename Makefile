@@ -79,7 +79,7 @@ clean::
 	rm -f night-knight-game.atr
 
 NIGHT.65o: night-knight.wnf night-knight-displaylist.INC HIGHSCORE.INC $(INCLUDES) compress GAME-DLI.INC $(LIBRARY)/DRAWBLOCK.INC ALL-PLAYFIELDS.DAT
-	$(CC) $< $(WNFC_OPTIONS) -showvariableusage -I $(LIBRARY) -I $(LIBRARY)/tests-utils
+	$(CC) $< $(WNFC_OPTIONS) -showvariableusage -I $(LIBRARY)
 	$(ASM) -ha -s $(@:.65o=.ASM) -g$(@:.65o=.lst) -l$(@:.65o=.lab) >$(@:.65o=.log)
 	cp $@ $(@:.65o=.COM)
 
