@@ -91,7 +91,7 @@ else
 fi
 
 if [[ ! -e ../firmware/ATARIXL.ROM ]]; then
-  echo "Please copy the ATARIXL.ROM firmware to ../fireware directory"
+  echo "Please copy the ATARIXL.ROM firmware to ../firmware directory"
   NEEDS=$((NEEDS+1))
 else
   echo "found ATARIXL.ROM firmware file"
