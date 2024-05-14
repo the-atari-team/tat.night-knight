@@ -141,3 +141,6 @@ git checkout feature/slim-figures
 make start
 ```
 
+### Last update:
+
+Move some address regions to make usage of Turbo 1050 Disk Speeder possible.
