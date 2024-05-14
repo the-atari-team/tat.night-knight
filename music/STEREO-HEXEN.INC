@@ -55,7 +55,7 @@ music_FREQ = 209     ; 1 wird in Shape verwendet
 ; So sind wir in der Lage uns vor einen schon vorhandenen Interrupt zu setzen
 ?OLD_ADDRESS=*
 
- *=$06fe
+ *=$05fe
 remember_VVBLKD
   .word 0
 

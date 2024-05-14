@@ -197,43 +197,6 @@ NO_DEC_HIGH_HEAP_PTR
  .byte $0A ; 710
  .byte $0C
 
-; Text we want to display at loading
-;
- *=$0129                     ; Makes us compatible with Hias OS
-?dlist_line
-  .sbyte "    L"
-  .sbyte +$40,"O"
-  .sbyte +$80,"A"
-  .sbyte +$C0,"D"
-  .sbyte +$80,"I"
-  .sbyte +$40,"N"
-  .sbyte "G.        "
-
-
-; very small Displaylist to show loading
-;
- *=$3c0 ; we use the 40 bytes of the printer buffer here
-?dlist_loading
- .byte DL_E8,DL_E8,DL_E8
- .byte DL_E8,DL_E8,DL_E8,DL_E8
- .byte DL_GR1|DL_ADDRES
- .word ?dlist_line                 ; wir zwacken 20 Bytes vom Stack ab ;-)
- ; Displaylist must be full length
- .byte DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8
- .byte DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8
-
- .byte DL_LOOP
- .word ?dlist_loading
-
-  .if * >= 1000
-    .error "Memory overflow in printer buffer! * must < 1000"
-  .endif
-
-; Displaylist activate by set into shadow registers
-;
- *=560
- .word ?dlist_loading
-
 ;
 ; OO      OOOO   OOOO  OOOOO  OOOO OO  OO  OOOO
 ; OO     OO  OO OO  OO OO  OO  OO  OOO OO OO  OO
@@ -246,20 +209,12 @@ NO_DEC_HIGH_HEAP_PTR
 
 ; Der Loading Font, es sind nur die Zeichen hier belegt, die gebraucht werden fuer die Darstellung
 ;
-*=$be00
+*=$bf00
 ?loading_font
- .dc 112 0
-
- .byte ~00000000 ; ...
- .byte ~00000000
- .byte ~00000000
- .byte ~00000000
- .byte ~00000000
- .byte ~01001001
- .byte ~01001001
- .byte ~00000000
-
- .dc 136 0
+; .dc 112 0
+;
+; .dc 8 0
+; .dc 136 0
  .dc 8 0
 
 ; LOADING
@@ -273,7 +228,15 @@ NO_DEC_HIGH_HEAP_PTR
  .byte ~11110110
  .byte ~00000000
 
- .dc 8 0
+ .byte ~00000000 ; B is ...
+ .byte ~00000000
+ .byte ~00000000
+ .byte ~00000000
+ .byte ~00000000
+ .byte ~01001001
+ .byte ~01001001
+ .byte ~00000000
+
  .dc 8 0
 
  .byte ~11111000 ; D
@@ -340,6 +303,41 @@ NO_DEC_HIGH_HEAP_PTR
  .byte ~00111100
  .byte ~00000000
 
+
+; p q r s t u v w x y z [ \ ] ^ _
+
+; Text we want to display at loading
+;
+?dlist_line
+  .sbyte "@@@L"
+  .sbyte +$40,"O"
+  .sbyte +$80,"A"
+  .sbyte +$C0,"D"
+  .sbyte +$80,"I"
+  .sbyte +$40,"N"
+  .sbyte "G"
+  .sbyte "B"
+  .sbyte "@@@@@@@@@"
+
+; very small Displaylist to show loading
+;
+?dlist_loading
+ .byte DL_E8,DL_E8,DL_E8
+ .byte DL_E8,DL_E8,DL_E8,DL_E8
+ .byte DL_GR1|DL_ADDRES
+ .word ?dlist_line
+ ; Displaylist must be full length
+ .byte DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8
+ .byte DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8,DL_E8
+
+ .byte DL_LOOP
+ .word ?dlist_loading
+
+  .if * >= $Bfff
+    .error "Memory overflow in 'LOADING...' Text! * must < $BFFF"
+  .endif
+
+
 ; Kurze Pause erzwingen, damit LOADING auch wirklich gezeigt wird
 ; Platte dreht mit 288 upm, also alle 5f einmal
 
@@ -362,17 +360,22 @@ NO_DEC_HIGH_HEAP_PTR
  bne ?loop2
  rts
 
+; Displaylist activate by set into shadow registers
+;
+ *=560
+ .word ?dlist_loading
+
  .bank
 
  *=$02e2
  .word @init_wait_for_font
 
 ; Interrupt Routinen in
- *=$580
+ *=$680
  .include "SIMPLE-64K.INC"
 
-  .if * > $5ff
-    .error "Memory overflow in SIMPLE-64K buffer! * must < $5ff"
+  .if * > $6ff
+    .error "Memory overflow in SIMPLE-64K buffer! * must < $6ff"
   .endif
 
 ;
