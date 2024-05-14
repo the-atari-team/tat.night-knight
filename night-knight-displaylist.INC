@@ -30,7 +30,7 @@
 ;
 ;
 
- *=$0600 ; MEMORY_STRUCT this is the earliest point we can use here
+ *=$0500 ; MEMORY_STRUCT this is the earliest point we can use here
 
 @game_mode
  .byte 0
